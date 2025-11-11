@@ -1,0 +1,14 @@
+- Java EE 8
+- JRE 17
+- IBM WebSphere Liberty Server in cluster mode
+- Enable admin console
+- Use Maven for build
+- If the application is a WAR, it has to be deployed as an EAR.
+- Create a simple RESTful service that will query the cluster members and returns the properties of those members.
+- Assume IBM WebSphere Liberty server will can be downloaded or locally added as zip.
+- Provide detailed docs, things to consider and other details as required.
+- Create all required project.
+- Ensure requirements are gathered into a requirement and are validated, added, updated as required.
+- Always use git actions for checkpoint the working before updating the files.
+- For any actions to be perfomed, create a todo list of small tasks that are required to be perfomed. Perform each task in a iteration and validate the todo list after perfoming the tasks.
+- Always maintain the user-requirements.txt in the root folder of the project. Save any updates to requirements for future use.
