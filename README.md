@@ -31,7 +31,7 @@ This project is configured to run a Liberty collective controller.
 To start the server, run the following command from the `liberty-cluster-app-ear` directory:
 
 ```bash
-mvn liberty:run-server
+mvn liberty:run
 ```
 
 The server will be created in `liberty-cluster-app-ear/target/liberty/wlp/usr/servers/controller`.
