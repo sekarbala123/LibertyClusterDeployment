@@ -51,6 +51,7 @@
                         <version>22.0.0.1</version>
                         <type>zip</type>
                     </assemblyArtifact>
+                    <acceptLicense>true</acceptLicense>
                     <configDirectory>${project.basedir}/src/main/liberty/config</configDirectory>
                     <appsDirectory>apps</appsDirectory>
                     <serverEnv>${project.basedir}/src/main/liberty/config/server.env</serverEnv>

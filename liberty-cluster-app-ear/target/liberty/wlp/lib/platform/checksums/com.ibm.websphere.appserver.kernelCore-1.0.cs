@@ -1,4 +1,4 @@
-#Mon Jan 03 21:46:12 GMT 2022
+#Tue Jan 04 00:19:39 GMT 2022
 lib/com.ibm.ws.runtime.update_1.0.60.jar=5380b104742d524cc46c608060cb223a
 lib/com.ibm.ws.org.eclipse.equinox.region_1.0.60.jar=f6f3203324fdb09acaa074ba84e23fdb
 lib/com.ibm.ws.kernel.equinox.module_1.0.60.jar=538deb818095a68cc103948931e1eb9f
