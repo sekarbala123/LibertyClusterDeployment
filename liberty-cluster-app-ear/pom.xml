@@ -45,7 +45,6 @@
                 <version>${liberty.maven.plugin.version}</version>
                 <configuration>
                     <serverName>controller</serverName>
-                    <copyDependencies>true</copyDependencies>
                     <assemblyArtifact>
                         <groupId>io.openliberty</groupId>
                         <artifactId>openliberty-runtime</artifactId>
