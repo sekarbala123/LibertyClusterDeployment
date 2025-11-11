@@ -39,6 +39,27 @@
                     </modules>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>io.openliberty.tools</groupId>
+                <artifactId>liberty-maven-plugin</artifactId>
+                <version>${liberty.maven.plugin.version}</version>
+                <configuration>
+                    <serverName>controller</serverName>
+                    <copyDependencies>true</copyDependencies>
+                    <assemblyArtifact>
+                        <groupId>io.openliberty</groupId>
+                        <artifactId>openliberty-runtime</artifactId>
+                        <version>22.0.0.1</version>
+                        <type>zip</type>
+                    </assemblyArtifact>
+                    <configDirectory>${project.basedir}/src/main/liberty/config</configDirectory>
+                    <appsDirectory>apps</appsDirectory>
+                    <serverEnv>${project.basedir}/src/main/liberty/config/server.env</serverEnv>
+                    <bootstrapProperties>
+                        <app.location>${project.build.directory}/${project.build.finalName}.ear</app.location>
+                    </bootstrapProperties>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

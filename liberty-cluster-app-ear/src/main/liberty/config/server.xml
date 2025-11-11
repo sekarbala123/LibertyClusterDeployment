@@ -1,0 +1,26 @@
+<server description="Liberty Collective Controller">
+
+    <featureManager>
+        <feature>javaee-8.0</feature>
+        <feature>collectiveController-1.0</feature>
+        <feature>adminCenter-1.0</feature>
+    </featureManager>
+
+    <httpEndpoint id="defaultHttpEndpoint"
+                  host="*"
+                  httpPort="9080"
+                  httpsPort="9443" />
+
+    <applicationManager autoExpand="true"/>
+
+    <application type="ear"
+                 id="liberty-cluster-app"
+                 location="${app.location}"
+                 name="liberty-cluster-app"/>
+
+    <collectiveController>
+    </collectiveController>
+
+    <clusterMember name="controllerMember" />
+
+</server>
