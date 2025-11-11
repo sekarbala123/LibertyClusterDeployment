@@ -7,4 +7,5 @@
 - [x] Create a `README.md` with detailed documentation
 - [x] Commit changes to Git at each logical step
 - [x] Fix the `liberty:run-server` command in `README.md`
-- [ ] Fix the `copyDependencies` configuration in `liberty-cluster-app-ear/pom.xml`
+- [x] Fix the `copyDependencies` configuration in `liberty-cluster-app-ear/pom.xml`
+- [ ] Downgrade the `maven-compiler-plugin` to a stable version
