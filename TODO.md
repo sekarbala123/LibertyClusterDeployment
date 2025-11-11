@@ -8,4 +8,5 @@
 - [x] Commit changes to Git at each logical step
 - [x] Fix the `liberty:run-server` command in `README.md`
 - [x] Fix the `copyDependencies` configuration in `liberty-cluster-app-ear/pom.xml`
-- [ ] Downgrade the `maven-compiler-plugin` to a stable version
+- [x] Downgrade the `maven-compiler-plugin` to a stable version
+- [ ] Use WebSphere Liberty runtime instead of Open Liberty
