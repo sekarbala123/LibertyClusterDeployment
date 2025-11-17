@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Liberty Cluster Stop Script
-# This script stops all cluster members by finding and terminating their processes
+# This script stops all cluster members using appropriate methods for each server type
 
 echo "🛑 Stopping Liberty Cluster..."
 echo ""
@@ -12,7 +12,7 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Function to stop a Liberty server by port
+# Function to stop a Liberty server by port (for controller)
 stop_server_by_port() {
     local server_name=$1
     local port=$2
@@ -52,17 +52,58 @@ stop_server_by_port() {
     fi
 }
 
+# Function to stop a Liberty server using server command
+stop_server_by_command() {
+    local server_name=$1
+    local server_path=$2
+    
+    echo -n "Stopping $server_name using server command... "
+    
+    if [ -f "$server_path/server" ]; then
+        # Try to stop using server command
+        cd "$server_path"
+        ./server stop $server_name >/dev/null 2>&1
+        
+        # Wait up to 10 seconds for shutdown
+        for i in {1..10}; do
+            if ! ./server status $server_name 2>&1 | grep -q "is running"; then
+                echo -e "${GREEN}✅ Stopped${NC}"
+                cd - >/dev/null
+                return 0
+            fi
+            sleep 1
+        done
+        
+        echo -e "${YELLOW}⚠️  May still be running${NC}"
+        cd - >/dev/null
+    else
+        echo -e "${YELLOW}⚠️  Server command not found${NC}"
+    fi
+}
+
 # Stop members first (reverse order of startup)
 echo "📍 Stopping Cluster Members:"
 echo ""
 
-stop_server_by_port "Member 2" "9082"
-stop_server_by_port "Member 1" "9081"
+# Try to stop member2 using server command first
+stop_server_by_command "member2" "liberty-cluster-member2/target/liberty/wlp/bin"
+# Fallback to port-based stop if needed
+if lsof -ti :9082 >/dev/null 2>&1; then
+    stop_server_by_port "Member 2 (fallback)" "9082"
+fi
+
+# Try to stop member1 using server command first
+stop_server_by_command "member1" "liberty-cluster-member1/target/liberty/wlp/bin"
+# Fallback to port-based stop if needed
+if lsof -ti :9081 >/dev/null 2>&1; then
+    stop_server_by_port "Member 1 (fallback)" "9081"
+fi
 
 echo ""
 echo "📍 Stopping Controller:"
 echo ""
 
+# Controller is stopped by port (Maven process)
 stop_server_by_port "Controller" "9080"
 
 echo ""

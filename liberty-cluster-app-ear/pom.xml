@@ -83,10 +83,13 @@
                     <!-- Features configuration with license acceptance -->
                     <features>
                         <acceptLicense>true</acceptLicense>
-                        <feature>javaee-8.0</feature>
+                        <feature>jaxrs-2.1</feature>
+                        <feature>servlet-4.0</feature>
+                        <feature>cdi-2.0</feature>
+                        <feature>jsonp-1.1</feature>
+                        <feature>jsonb-1.0</feature>
                         <feature>adminCenter-1.0</feature>
                         <feature>restConnector-2.0</feature>
-                        <feature>sessionCache-1.0</feature>
                         <feature>collectiveController-1.0</feature>
                     </features>
                 </configuration>

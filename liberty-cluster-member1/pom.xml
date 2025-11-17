@@ -13,43 +13,8 @@
     <artifactId>liberty-cluster-member1</artifactId>
     <packaging>pom</packaging>
 
-    <dependencies>
-        <dependency>
-            <groupId>com.example</groupId>
-            <artifactId>liberty-cluster-app-ear</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <type>ear</type>
-        </dependency>
-    </dependencies>
-
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.6.1</version>
-                <executions>
-                    <execution>
-                        <id>copy-ear</id>
-                        <phase>pre-integration-test</phase>
-                        <goals>
-                            <goal>copy</goal>
-                        </goals>
-                        <configuration>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>com.example</groupId>
-                                    <artifactId>liberty-cluster-app-ear</artifactId>
-                                    <version>1.0-SNAPSHOT</version>
-                                    <type>ear</type>
-                                    <outputDirectory>${project.build.directory}/apps</outputDirectory>
-                                    <destFileName>liberty-cluster-app-ear-1.0-SNAPSHOT.ear</destFileName>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>io.openliberty.tools</groupId>
                 <artifactId>liberty-maven-plugin</artifactId>
@@ -58,10 +23,7 @@
                     <serverName>member1</serverName>
                     <configDirectory>${project.basedir}/src/main/liberty/config</configDirectory>
                     <serverEnv>${project.basedir}/src/main/liberty/config/server.env</serverEnv>
-                    <bootstrapProperties>
-                        <app.location>${project.build.directory}/apps/liberty-cluster-app-ear-1.0-SNAPSHOT.ear</app.location>
-                    </bootstrapProperties>
-                    <deployPackages>dependencies</deployPackages>
+                    <skipDefaultPorts>true</skipDefaultPorts>
                     <!-- WebSphere Liberty Runtime Configuration -->
                     <runtimeArtifact>
                         <groupId>com.ibm.websphere.appserver.runtime</groupId>
@@ -72,10 +34,8 @@
                     <!-- Features configuration with license acceptance -->
                     <features>
                         <acceptLicense>true</acceptLicense>
-                        <feature>javaee-8.0</feature>
                         <feature>adminCenter-1.0</feature>
                         <feature>restConnector-2.0</feature>
-                        <feature>sessionCache-1.0</feature>
                         <feature>collectiveMember-1.0</feature>
                     </features>
                 </configuration>
@@ -85,6 +45,7 @@
                         <phase>pre-integration-test</phase>
                         <goals>
                             <goal>create</goal>
+                            <goal>install-feature</goal>
                         </goals>
                     </execution>
                 </executions>

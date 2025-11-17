@@ -1,10 +1,13 @@
 <server description="WebSphere Liberty Collective Controller">
 
     <featureManager>
-        <feature>javaee-8.0</feature>
+        <feature>jaxrs-2.1</feature>
+        <feature>servlet-4.0</feature>
+        <feature>cdi-2.0</feature>
+        <feature>jsonp-1.1</feature>
+        <feature>jsonb-1.0</feature>
         <feature>adminCenter-1.0</feature>
         <feature>restConnector-2.0</feature>
-        <feature>sessionCache-1.0</feature>
         <feature>collectiveController-1.0</feature>
     </featureManager>
 
@@ -16,13 +19,11 @@
     <!-- Quick Start Security for Admin Center -->
     <quickStartSecurity userName="admin" userPassword="adminpwd" />
 
-    <!-- Enable application security -->
+    <!-- Enable application auto-expansion -->
     <applicationManager autoExpand="true"/>
 
-    <!-- Application is deployed via dropins folder -->
-    
-    <!-- Key Store Configuration (auto-generated) -->
-    <keyStore id="defaultKeyStore" password="Liberty" />
+    <!-- Define the host name for use by the collective -->
+    <variable name="defaultHostName" value="localhost" />
 
     <!-- Collective Controller Configuration -->
     <collectiveController>
@@ -30,25 +31,43 @@
         <httpsPort>9443</httpsPort>
         <serverIdentity>controller</serverIdentity>
     </collectiveController>
-    
-    <!-- Session Replication Configuration for Clustering -->
-    <httpSession cloneId="controller" 
-                 cookieName="JSESSIONID"
-                 cookiePath="/"
-                 invalidateOnUnauthorizedSessionRequestException="true"/>
-    
-    <!-- JCache session persistence using Hazelcast -->
-    <httpSessionCache cacheManagerRef="CacheManager"/>
-    
-    <cacheManager id="CacheManager">
-        <cache id="com.ibm.ws.session.meta.default_host%2Fliberty-cluster-app" 
-               name="com.ibm.ws.session.meta.default_host%2Fliberty-cluster-app">
-            <cacheLoaderWriter class="com.ibm.ws.session.store.cache.CacheStoreService"/>
-        </cache>
-        <cache id="com.ibm.ws.session.attr.default_host%2Fliberty-cluster-app"
-               name="com.ibm.ws.session.attr.default_host%2Fliberty-cluster-app">
-            <cacheLoaderWriter class="com.ibm.ws.session.store.cache.CacheStoreService"/>
-        </cache>
-    </cacheManager>
+
+    <!-- SSL Configuration with client authentication for collective -->
+    <ssl id="defaultSSLConfig"
+         keyStoreRef="defaultKeyStore"
+         trustStoreRef="defaultTrustStore"
+         clientAuthenticationSupported="true"
+         verifyHostname="false"
+         sslProtocol="TLSv1.2"/>
+
+    <!-- inbound (HTTPS) keystore -->
+    <keyStore id="defaultKeyStore" password="{xor}EzY9Oi0rJg=="
+              location="${server.config.dir}/resources/security/key.p12" />
+
+    <!-- inbound (HTTPS) truststore -->
+    <keyStore id="defaultTrustStore" password="{xor}EzY9Oi0rJg=="
+              location="${server.config.dir}/resources/security/trust.p12" />
+
+    <!-- server identity keystore -->
+    <keyStore id="serverIdentity" password="{xor}EzY9Oi0rJg=="
+              location="${server.config.dir}/resources/collective/serverIdentity.p12" />
+
+    <!-- collective trust keystore -->
+    <keyStore id="collectiveTrust" password="{xor}EzY9Oi0rJg=="
+              location="${server.config.dir}/resources/collective/collectiveTrust.p12" />
+
+    <!-- collective root signers keystore -->
+    <keyStore id="collectiveRootKeys" password="{xor}EzY9Oi0rJg=="
+              location="${server.config.dir}/resources/collective/rootKeys.p12" />
+
+    <!-- Remote file access for collective operations -->
+    <remoteFileAccess>
+        <readDir>${wlp.install.dir}</readDir>
+        <readDir>${wlp.user.dir}</readDir>
+        <readDir>${server.output.dir}</readDir>
+        <readDir>${server.config.dir}</readDir>
+        <writeDir>${server.config.dir}</writeDir>
+        <writeDir>${server.output.dir}</writeDir>
+    </remoteFileAccess>
 
 </server>

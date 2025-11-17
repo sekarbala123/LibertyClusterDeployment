@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Script to set up Liberty collective controller
+
+echo "🔧 Setting up Liberty Collective Controller..."
+echo ""
+
+# Setup the collective controller
+echo "📍 Creating collective controller..."
+cd liberty-cluster-app-ear/target/liberty/wlp/bin
+./collective create controller --keystorePassword=Liberty
+
+if [ $? -eq 0 ]; then
+    echo "✅ Collective controller created successfully"
+else
+    echo "❌ Failed to create collective controller"
+    exit 1
+fi
+
+echo ""
+echo "✅ Collective controller setup completed"
+echo ""
+echo "💡 Now you can join members using: ./join-members.sh"
+echo ""
+
+# Made with Bob
