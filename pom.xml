@@ -10,8 +10,8 @@
     <packaging>pom</packaging>
 
     <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <liberty.maven.plugin.version>3.3.4</liberty.maven.plugin.version>
     </properties>
@@ -61,6 +61,30 @@
                     <groupId>io.openliberty.tools</groupId>
                     <artifactId>liberty-maven-plugin</artifactId>
                     <version>${liberty.maven.plugin.version}</version>
+                    <configuration>
+                        <!-- WebSphere Liberty Runtime Configuration -->
+                        <runtimeArtifact>
+                            <groupId>com.ibm.websphere.appserver.runtime</groupId>
+                            <artifactId>wlp-kernel</artifactId>
+                            <version>25.0.0.9</version>
+                            <type>zip</type>
+                        </runtimeArtifact>
+                        <!-- Features configuration with license acceptance -->
+                        <features>
+                            <acceptLicense>true</acceptLicense>
+                            <feature>jaxrs-2.1</feature>
+                            <feature>servlet-4.0</feature>
+                            <feature>cdi-2.0</feature>
+                            <feature>jsonp-1.1</feature>
+                            <feature>jsonb-1.0</feature>
+                            <feature>adminCenter-1.0</feature>
+                            <feature>restConnector-2.0</feature>
+                            <feature>collectiveController-1.0</feature>
+                            <feature>ssl-1.0</feature>
+                            <feature>appSecurity-2.0</feature>
+                            <feature>collectiveMember-1.0</feature>
+                        </features>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
