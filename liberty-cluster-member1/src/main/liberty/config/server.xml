@@ -22,37 +22,8 @@
     <collectiveMember controllerHost="localhost"
                       controllerPort="9443" />
 
-    <!-- SSL Configuration with client authentication for collective -->
-    <ssl id="defaultSSLConfig"
-         keyStoreRef="defaultKeyStore"
-         trustStoreRef="defaultTrustStore"
-         clientAuthenticationSupported="true"
-         verifyHostname="false"
-         sslProtocol="TLSv1.2"/>
-
-    <!-- inbound (HTTPS) keystore -->
-    <keyStore id="defaultKeyStore" password="{xor}EzY9Oi0rJg=="
-              location="${server.config.dir}/resources/security/key.p12" />
-
-    <!-- inbound (HTTPS) truststore -->
-    <keyStore id="defaultTrustStore" password="{xor}EzY9Oi0rJg=="
-              location="${server.config.dir}/resources/security/trust.p12" />
-
-    <!-- server identity keystore -->
-    <keyStore id="serverIdentity" password="{xor}EzY9Oi0rJg=="
-              location="${server.config.dir}/resources/collective/serverIdentity.p12" />
-
-    <!-- collective truststore -->
-    <keyStore id="collectiveTrust" password="{xor}EzY9Oi0rJg=="
-              location="${server.config.dir}/resources/collective/collectiveTrust.p12" />
-
-    <!-- Remote file access for collective operations -->
-    <remoteFileAccess>
-        <readDir>${wlp.install.dir}</readDir>
-        <readDir>${wlp.user.dir}</readDir>
-        <readDir>${server.output.dir}</readDir>
-        <readDir>${server.config.dir}</readDir>
-        <writeDir>${server.output.dir}</writeDir>
-    </remoteFileAccess>
+    <!-- SSL Configuration -->
+    <ssl id="defaultSSLConfig" keyStoreRef="defaultKeyStore" />
+    <keyStore id="defaultKeyStore" password="yourPassword" />
 
 </server>

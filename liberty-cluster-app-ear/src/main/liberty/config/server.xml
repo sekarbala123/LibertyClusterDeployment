@@ -35,32 +35,8 @@
     </collectiveController>
 
     <!-- SSL Configuration with client authentication for collective -->
-    <ssl id="defaultSSLConfig"
-         keyStoreRef="defaultKeyStore"
-         trustStoreRef="defaultTrustStore"
-         clientAuthenticationSupported="true"
-         verifyHostname="false"
-         sslProtocol="TLSv1.2"/>
-
-    <!-- inbound (HTTPS) keystore -->
-    <keyStore id="defaultKeyStore" password="{xor}EzY9Oi0rJg=="
-              location="${server.config.dir}/resources/security/key.p12" />
-
-    <!-- inbound (HTTPS) truststore -->
-    <keyStore id="defaultTrustStore" password="{xor}EzY9Oi0rJg=="
-              location="${server.config.dir}/resources/security/trust.p12" />
-
-    <!-- server identity keystore -->
-    <keyStore id="serverIdentity" password="{xor}EzY9Oi0rJg=="
-              location="${server.config.dir}/resources/collective/serverIdentity.p12" />
-
-    <!-- collective trust keystore -->
-    <keyStore id="collectiveTrust" password="{xor}EzY9Oi0rJg=="
-              location="${server.config.dir}/resources/collective/collectiveTrust.p12" />
-
-    <!-- collective root signers keystore -->
-    <keyStore id="collectiveRootKeys" password="{xor}EzY9Oi0rJg=="
-              location="${server.config.dir}/resources/collective/rootKeys.p12" />
+    <ssl id="defaultSSLConfig" keyStoreRef="defaultKeyStore" />
+    <keyStore id="defaultKeyStore" password="yourPassword" />
 
     <!-- Remote file access for collective operations -->
     <remoteFileAccess>

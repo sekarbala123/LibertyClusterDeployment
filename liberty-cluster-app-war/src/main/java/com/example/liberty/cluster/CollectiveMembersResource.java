@@ -29,97 +29,43 @@ public class CollectiveMembersResource {
     public Response getCollectiveMembers() {
         try {
             MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-            
             List<Map<String, Object>> members = new ArrayList<>();
             
-            // Query the CollectiveRepository MBean to navigate the repository structure
-            ObjectName repoMBean = new ObjectName("WebSphere:feature=collectiveController,type=CollectiveRepository,name=CollectiveRepository");
-            
-            if (mbs.isRegistered(repoMBean)) {
+            // The MBean for the collective controller itself
+            ObjectName controllerMBeanName = new ObjectName("WebSphere:feature=collectiveController,type=CollectiveRepository,name=CollectiveRepository");
+
+            if (!mbs.isRegistered(controllerMBeanName)) {
+                System.err.println("CRITICAL: Collective Controller MBean is not registered. Ensure this app is on the controller server.");
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "This endpoint must be deployed on a Liberty Collective Controller.");
+                errorResponse.put("mbean_not_found", controllerMBeanName.toString());
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(errorResponse).build();
+            }
+
+            System.out.println("SUCCESS: Collective Controller MBean is registered. Querying for members...");
+
+            // Query for all MBeans that represent collective members
+            ObjectName memberQuery = new ObjectName("WebSphere:feature=collectiveController,type=CollectiveMember,*");
+            Set<ObjectName> memberMBeans = mbs.queryNames(memberQuery, null);
+
+            System.out.println("Found " + memberMBeans.size() + " collective member MBeans.");
+
+            for (ObjectName mbeanName : memberMBeans) {
+                Map<String, Object> memberDetails = new HashMap<>();
                 try {
-                    // Navigate the repository structure to find hosts
-                    // The repository structure is typically: /hosts/<hostname>/servers/<servername>
+                    MBeanInfo info = mbs.getMBeanInfo(mbeanName);
+                    AttributeList attributes = mbs.getAttributes(mbeanName, getAttributeNames(info));
                     
-                    // Check if /hosts node exists
-                    Boolean hostsExists = (Boolean) mbs.invoke(repoMBean, "exists",
-                        new Object[]{"/hosts"}, new String[]{"java.lang.String"});
-                    
-                    if (hostsExists != null && hostsExists) {
-                        // Get all host children
-                        @SuppressWarnings("unchecked")
-                        java.util.Collection<String> hostNames = (java.util.Collection<String>) mbs.invoke(repoMBean, "getChildren",
-                            new Object[]{"/hosts", false}, new String[]{"java.lang.String", "boolean"});
-                        
-                        System.out.println("Found hosts: " + hostNames);
-                        
-                        if (hostNames != null) {
-                            for (String hostName : hostNames) {
-                                Map<String, Object> hostInfo = new HashMap<>();
-                                hostInfo.put("type", "host");
-                                hostInfo.put("hostName", hostName);
-                                
-                                // Get host data
-                                try {
-                                    Object hostData = mbs.invoke(repoMBean, "getData",
-                                        new Object[]{"/hosts/" + hostName}, new String[]{"java.lang.String"});
-                                    if (hostData != null) {
-                                        hostInfo.put("data", hostData.toString());
-                                    }
-                                } catch (Exception e) {
-                                    System.err.println("Error getting host data: " + e.getMessage());
-                                }
-                                
-                                members.add(hostInfo);
-                                
-                                // Try to get servers for this host
-                                try {
-                                    String serversPath = "/hosts/" + hostName + "/servers";
-                                    Boolean serversExists = (Boolean) mbs.invoke(repoMBean, "exists",
-                                        new Object[]{serversPath}, new String[]{"java.lang.String"});
-                                    
-                                    if (serversExists != null && serversExists) {
-                                        @SuppressWarnings("unchecked")
-                                        java.util.Collection<String> serverNames = (java.util.Collection<String>) mbs.invoke(repoMBean, "getChildren",
-                                            new Object[]{serversPath, false}, new String[]{"java.lang.String", "boolean"});
-                                        
-                                        if (serverNames != null) {
-                                            for (String serverName : serverNames) {
-                                                Map<String, Object> serverInfo = new HashMap<>();
-                                                serverInfo.put("type", "server");
-                                                serverInfo.put("hostName", hostName);
-                                                serverInfo.put("serverName", serverName);
-                                                
-                                                // Get server data
-                                                try {
-                                                    Object serverData = mbs.invoke(repoMBean, "getData",
-                                                        new Object[]{serversPath + "/" + serverName}, new String[]{"java.lang.String"});
-                                                    if (serverData != null) {
-                                                        serverInfo.put("data", serverData.toString());
-                                                    }
-                                                } catch (Exception e) {
-                                                    System.err.println("Error getting server data: " + e.getMessage());
-                                                }
-                                                
-                                                members.add(serverInfo);
-                                            }
-                                        }
-                                    }
-                                } catch (Exception e) {
-                                    System.err.println("Error getting servers for host " + hostName + ": " + e.getMessage());
-                                }
-                            }
-                        }
-                    } else {
-                        System.out.println("/hosts node does not exist in repository");
+                    for (Attribute attr : attributes.asList()) {
+                        memberDetails.put(attr.getName(), attr.getValue());
                     }
+                    members.add(memberDetails);
                 } catch (Exception e) {
-                    System.err.println("Error navigating repository: " + e.getMessage());
+                    System.err.println("Error processing member MBean " + mbeanName + ": " + e.getMessage());
                     e.printStackTrace();
                 }
-            } else {
-                System.err.println("CollectiveRepository MBean not registered");
             }
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("controllerStatus", "ACTIVE");
             response.put("memberCount", members.size());
@@ -130,12 +76,21 @@ public class CollectiveMembersResource {
             
         } catch (Exception e) {
             Map<String, Object> error = new HashMap<>();
-            error.put("error", "Failed to query collective members");
+            error.put("error", "Failed to query collective members due to an unexpected exception.");
             error.put("message", e.getMessage());
             error.put("type", e.getClass().getName());
             e.printStackTrace();
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(error).build();
         }
+    }
+
+    private String[] getAttributeNames(MBeanInfo info) {
+        MBeanAttributeInfo[] attributes = info.getAttributes();
+        String[] names = new String[attributes.length];
+        for (int i = 0; i < attributes.length; i++) {
+            names[i] = attributes[i].getName();
+        }
+        return names;
     }
     
     @GET

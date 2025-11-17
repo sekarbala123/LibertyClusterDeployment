@@ -2,6 +2,15 @@
 
 # Script to set up Liberty collective controller
 
+echo "🔧 Building the project..."
+mvn clean install
+if [ $? -ne 0 ]; then
+    echo "❌ Maven build failed"
+    exit 1
+fi
+echo "✅ Project built successfully"
+echo ""
+
 echo "🔧 Setting up Liberty Collective Controller..."
 echo ""
 
@@ -17,10 +26,13 @@ else
     exit 1
 fi
 
+cd ../../../../..
+
 echo ""
 echo "✅ Collective controller setup completed"
 echo ""
-echo "💡 Now you can join members using: ./join-members.sh"
+echo "💡 Now you can start the controller using: 'cd liberty-cluster-app-ear && mvn liberty:run'"
+echo "💡 Then, you can join members using: ./join-members.sh"
 echo ""
 
 # Made with Bob
