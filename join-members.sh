@@ -18,7 +18,7 @@ BASE_DIR=$(pwd)
 if [ -d "$BASE_DIR/liberty-cluster-member1/target/liberty/wlp/bin" ]; then
     echo "📍 Joining member1 to collective..."
     cd "$BASE_DIR/liberty-cluster-member1/target/liberty/wlp/bin"
-    ./collective join member1 --host=localhost --port=9443 --user=admin --password=adminpwd --keystorePassword=Liberty --autoAcceptCertificates --hostName=localhost --rpcUserHome="$HOME" --useCollectiveSSHKey=true
+    ./collective join member1 --host=localhost --port=9443 --user=admin --password=admin --keystorePassword=Liberty --autoAcceptCertificates --hostName=localhost --rpcUserHome="$HOME" --useCollectiveSSHKey=true
 
     if [ $? -eq 0 ]; then
         echo "✅ Member1 joined successfully"
@@ -35,7 +35,7 @@ echo ""
 if [ -d "$BASE_DIR/liberty-cluster-member2/target/liberty/wlp/bin" ]; then
     echo "📍 Joining member2 to collective..."
     cd "$BASE_DIR/liberty-cluster-member2/target/liberty/wlp/bin"
-    ./collective join member2 --host=localhost --port=9443 --user=admin --password=adminpwd --keystorePassword=Liberty --autoAcceptCertificates --hostName=localhost --rpcUserHome="$HOME" --useCollectiveSSHKey=true
+    ./collective join member2 --host=localhost --port=9443 --user=admin --password=admin --keystorePassword=Liberty --autoAcceptCertificates --hostName=localhost --rpcUserHome="$HOME" --useCollectiveSSHKey=true
 
     if [ $? -eq 0 ]; then
         echo "✅ Member2 joined successfully"

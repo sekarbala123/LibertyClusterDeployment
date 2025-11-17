@@ -1,29 +1,44 @@
-<server description="WebSphere Liberty Cluster Member 1">
+<server description="Liberty Collective Member">
 
+    <!-- Enable features -->
     <featureManager>
+        <feature>collectiveMember-1.0</feature>
         <feature>adminCenter-1.0</feature>
         <feature>restConnector-2.0</feature>
-        <feature>collectiveMember-1.0</feature>
     </featureManager>
 
-    <!-- Different ports from controller -->
+    <!-- HTTP endpoint -->
     <httpEndpoint id="defaultHttpEndpoint"
                   host="*"
                   httpPort="9081"
                   httpsPort="9444" />
 
-    <!-- Quick Start Security for Admin Center -->
-    <quickStartSecurity userName="admin" userPassword="adminpwd" />
-
-    <!-- Define the host name for use by the collective -->
+    <!-- Define the host name for use by the collective. -->
     <variable name="defaultHostName" value="localhost" />
 
-    <!-- Collective Member Configuration -->
-    <collectiveMember controllerHost="localhost"
-                      controllerPort="9443" />
+    <!-- TODO: Set the security configuration for Administrative access -->
+    <quickStartSecurity userName="admin" userPassword="admin" />
 
-    <!-- SSL Configuration -->
-    <ssl id="defaultSSLConfig" keyStoreRef="defaultKeyStore" />
-    <keyStore id="defaultKeyStore" password="yourPassword" />
+    <!-- clientAuthenticationSupported set to enable bidirectional trust -->
+    <ssl id="defaultSSLConfig"
+         keyStoreRef="defaultKeyStore"
+         trustStoreRef="defaultTrustStore"
+         clientAuthenticationSupported="true" />
+
+    <!-- inbound (HTTPS) keystore -->
+    <keyStore id="defaultKeyStore" password="Liberty"
+              location="${server.config.dir}/resources/security/key.p12" />
+
+    <!-- inbound (HTTPS) truststore -->
+    <keyStore id="defaultTrustStore" password="Liberty"
+              location="${server.config.dir}/resources/security/trust.p12" />
+
+    <!-- server identity keystore -->
+    <keyStore id="serverIdentity" password="Liberty"
+              location="${server.config.dir}/resources/collective/serverIdentity.p12" />
+
+    <!-- collective truststore -->
+    <keyStore id="collectiveTrust" password="Liberty"
+              location="${server.config.dir}/resources/collective/collectiveTrust.p12" />
 
 </server>

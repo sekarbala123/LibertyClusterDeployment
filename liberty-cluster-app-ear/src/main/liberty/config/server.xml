@@ -1,42 +1,55 @@
-<server description="WebSphere Liberty Collective Controller">
+<server description="Liberty Collective Controller">
 
+    <!-- Enable features -->
     <featureManager>
-        <feature>jaxrs-2.1</feature>
-        <feature>servlet-4.0</feature>
-        <feature>cdi-2.0</feature>
-        <feature>jsonp-1.1</feature>
-        <feature>jsonb-1.0</feature>
+        <feature>collectiveController-1.0</feature>
         <feature>adminCenter-1.0</feature>
         <feature>restConnector-2.0</feature>
-        <feature>collectiveController-1.0</feature>
+        <feature>jaxrs-2.1</feature>
+        <feature>jsonp-1.1</feature>
+        <feature>jsonb-1.0</feature>
+        <feature>cdi-2.0</feature>
         <feature>ssl-1.0</feature>
+        <feature>servlet-4.0</feature>
     </featureManager>
 
-
+    <!-- HTTP endpoint -->
     <httpEndpoint id="defaultHttpEndpoint"
                   host="*"
                   httpPort="9080"
                   httpsPort="9443" />
 
-    <!-- Quick Start Security for Admin Center -->
-    <quickStartSecurity userName="admin" userPassword="adminpwd" />
-
-    <!-- Enable application auto-expansion -->
-    <applicationManager autoExpand="true"/>
-
-    <!-- Define the host name for use by the collective -->
+    <!-- Define the host name for use by the collective. -->
     <variable name="defaultHostName" value="localhost" />
 
-    <!-- Collective Controller Configuration -->
-    <collectiveController>
-        <host>*</host>
-        <httpsPort>9443</httpsPort>
-        <serverIdentity>controller</serverIdentity>
-    </collectiveController>
+    <!-- TODO: Set the security configuration for Administrative access -->
+    <quickStartSecurity userName="admin" userPassword="admin" />
 
-    <!-- SSL Configuration with client authentication for collective -->
-    <ssl id="defaultSSLConfig" keyStoreRef="defaultKeyStore" />
-    <keyStore id="defaultKeyStore" password="yourPassword" />
+    <!-- clientAuthenticationSupported set to enable bidirectional trust -->
+    <ssl id="defaultSSLConfig"
+         keyStoreRef="defaultKeyStore"
+         trustStoreRef="defaultTrustStore"
+         clientAuthenticationSupported="true" />
+
+    <!-- inbound (HTTPS) keystore -->
+    <keyStore id="defaultKeyStore" password="Liberty"
+              location="${server.config.dir}/resources/security/key.p12" />
+
+    <!-- inbound (HTTPS) truststore -->
+    <keyStore id="defaultTrustStore" password="Liberty"
+              location="${server.config.dir}/resources/security/trust.p12" />
+
+    <!-- server identity keystore -->
+    <keyStore id="serverIdentity" password="Liberty"
+              location="${server.config.dir}/resources/collective/serverIdentity.p12" />
+
+    <!-- collective trust keystore -->
+    <keyStore id="collectiveTrust" password="Liberty"
+              location="${server.config.dir}/resources/collective/collectiveTrust.p12" />
+
+    <!-- collective root signers keystore -->
+    <keyStore id="collectiveRootKeys" password="Liberty"
+              location="${server.config.dir}/resources/collective/rootKeys.p12" />
 
     <!-- Remote file access for collective operations -->
     <remoteFileAccess>
@@ -47,5 +60,8 @@
         <writeDir>${server.config.dir}</writeDir>
         <writeDir>${server.output.dir}</writeDir>
     </remoteFileAccess>
+
+    <!-- Deploy the EAR -->
+    <enterpriseApplication location="liberty-cluster-app-ear-1.0-SNAPSHOT.ear"/>
 
 </server>

@@ -13,3 +13,4 @@
 - For any actions to be perfomed, create a todo list of small tasks that are required to be perfomed. Perform each task in a iteration and validate the todo list after perfoming the tasks.
 - Always maintain the user-requirements.txt in the root folder of the project. Save any updates to requirements for future use.
 - The REST endpoints should correctly list all members of the Liberty cluster.
+- The REST endpoint at /api/members should return a JSON array of all collective members.
