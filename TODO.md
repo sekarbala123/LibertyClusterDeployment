@@ -14,7 +14,7 @@
 - [x] Use WebSphere Liberty runtime instead of Open Liberty
 - [x] Accept the WebSphere Liberty license using correct configuration
 - [x] Update documentation to use `liberty:dev` instead of `liberty:run`
-- [x] Add `quickStartSecurity` configuration to `server.xml` for Admin Center access
+- [x] Replace `quickStartSecurity` with `basicRegistry` for Admin Center access
 - [x] Create `application.xml` deployment descriptor for EAR module
 - [x] Add comprehensive troubleshooting section to README.md
 - [x] Document REST API endpoints with examples
@@ -113,6 +113,7 @@ None - All known issues have been resolved!
 
 ## 🔐 Security Enhancements
 
+- [x] Implement basicRegistry for administrative access
 - [ ] Implement OAuth2/OpenID Connect
 - [ ] Add rate limiting and throttling
 - [ ] Implement API key management
@@ -151,18 +152,8 @@ None - All known issues have been resolved!
 
 ## 📅 Recent Changes
 
-### 2025-11-12
-- ✅ Fixed WebSphere Liberty license acceptance in POM configuration
-- ✅ Moved `acceptLicense` to correct location (outside `<features>` tag)
-- ✅ Added `quickStartSecurity` configuration to `server.xml`
-- ✅ Created `application.xml` deployment descriptor for EAR module
-- ✅ Completely rewrote README.md with comprehensive documentation
-- ✅ Added architecture diagram using Mermaid
-- ✅ Created detailed SETUP.md guide
-- ✅ Added troubleshooting section with common issues and solutions
-- ✅ Documented REST API endpoints with curl examples
-- ✅ Added security considerations and production deployment guidelines
-- ✅ Created validation checklist for deployment verification
+### 2025-11-17
+- ✅ Replaced `quickStartSecurity` with `basicRegistry` in `server.xml` for enhanced security.
 
 ## 🎉 Project Status
 
