@@ -1,17 +1,18 @@
-<server description="WebSphere Liberty Collective Controller">
+<server description="WebSphere Liberty Cluster Member 1">
 
     <featureManager>
         <feature>javaee-8.0</feature>
         <feature>adminCenter-1.0</feature>
         <feature>restConnector-2.0</feature>
         <feature>sessionCache-1.0</feature>
-        <feature>collectiveController-1.0</feature>
+        <feature>collectiveMember-1.0</feature>
     </featureManager>
 
+    <!-- Different ports from controller -->
     <httpEndpoint id="defaultHttpEndpoint"
                   host="*"
-                  httpPort="9080"
-                  httpsPort="9443" />
+                  httpPort="9081"
+                  httpsPort="9444" />
 
     <!-- Quick Start Security for Admin Center -->
     <quickStartSecurity userName="admin" userPassword="adminpwd" />
@@ -19,20 +20,23 @@
     <!-- Enable application security -->
     <applicationManager autoExpand="true"/>
 
-    <!-- Application is deployed via dropins folder -->
-    
+    <application type="ear"
+                 id="liberty-cluster-app"
+                 location="${app.location}"
+                 name="liberty-cluster-app"/>
+
     <!-- Key Store Configuration (auto-generated) -->
     <keyStore id="defaultKeyStore" password="Liberty" />
 
-    <!-- Collective Controller Configuration -->
-    <collectiveController>
-        <host>*</host>
-        <httpsPort>9443</httpsPort>
-        <serverIdentity>controller</serverIdentity>
-    </collectiveController>
-    
+    <!-- Collective Member Configuration -->
+    <collectiveMember>
+        <controllerHost>localhost</controllerHost>
+        <controllerHttpsPort>9443</controllerHttpsPort>
+        <serverIdentity>member1</serverIdentity>
+    </collectiveMember>
+
     <!-- Session Replication Configuration for Clustering -->
-    <httpSession cloneId="controller" 
+    <httpSession cloneId="member1" 
                  cookieName="JSESSIONID"
                  cookiePath="/"
                  invalidateOnUnauthorizedSessionRequestException="true"/>
@@ -52,3 +56,5 @@
     </cacheManager>
 
 </server>
+
+<!-- Made with Bob -->

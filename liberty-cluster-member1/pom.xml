@@ -10,15 +10,15 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>liberty-cluster-app-ear</artifactId>
-    <packaging>ear</packaging>
+    <artifactId>liberty-cluster-member1</artifactId>
+    <packaging>pom</packaging>
 
     <dependencies>
         <dependency>
             <groupId>com.example</groupId>
-            <artifactId>liberty-cluster-app-war</artifactId>
+            <artifactId>liberty-cluster-app-ear</artifactId>
             <version>1.0-SNAPSHOT</version>
-            <type>war</type>
+            <type>ear</type>
         </dependency>
     </dependencies>
 
@@ -26,37 +26,24 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-ear-plugin</artifactId>
-                <configuration>
-                    <version>8</version>
-                    <modules>
-                        <webModule>
-                            <groupId>com.example</groupId>
-                            <artifactId>liberty-cluster-app-war</artifactId>
-                            <contextRoot>/liberty-cluster-app</contextRoot>
-                        </webModule>
-                    </modules>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <version>3.6.1</version>
                 <executions>
                     <execution>
                         <id>copy-ear</id>
-                        <phase>package</phase>
+                        <phase>pre-integration-test</phase>
                         <goals>
                             <goal>copy</goal>
                         </goals>
                         <configuration>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>${project.groupId}</groupId>
-                                    <artifactId>${project.artifactId}</artifactId>
-                                    <version>${project.version}</version>
+                                    <groupId>com.example</groupId>
+                                    <artifactId>liberty-cluster-app-ear</artifactId>
+                                    <version>1.0-SNAPSHOT</version>
                                     <type>ear</type>
-                                    <outputDirectory>${project.build.directory}/liberty/wlp/usr/servers/controller/dropins</outputDirectory>
+                                    <outputDirectory>${project.build.directory}/apps</outputDirectory>
+                                    <destFileName>liberty-cluster-app-ear-1.0-SNAPSHOT.ear</destFileName>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
@@ -68,11 +55,13 @@
                 <artifactId>liberty-maven-plugin</artifactId>
                 <version>${liberty.maven.plugin.version}</version>
                 <configuration>
-                    <serverName>controller</serverName>
+                    <serverName>member1</serverName>
                     <configDirectory>${project.basedir}/src/main/liberty/config</configDirectory>
-                    <appsDirectory>dropins</appsDirectory>
-                    <looseApplication>false</looseApplication>
                     <serverEnv>${project.basedir}/src/main/liberty/config/server.env</serverEnv>
+                    <bootstrapProperties>
+                        <app.location>${project.build.directory}/apps/liberty-cluster-app-ear-1.0-SNAPSHOT.ear</app.location>
+                    </bootstrapProperties>
+                    <deployPackages>dependencies</deployPackages>
                     <!-- WebSphere Liberty Runtime Configuration -->
                     <runtimeArtifact>
                         <groupId>com.ibm.websphere.appserver.runtime</groupId>
@@ -87,7 +76,7 @@
                         <feature>adminCenter-1.0</feature>
                         <feature>restConnector-2.0</feature>
                         <feature>sessionCache-1.0</feature>
-                        <feature>collectiveController-1.0</feature>
+                        <feature>collectiveMember-1.0</feature>
                     </features>
                 </configuration>
                 <executions>
@@ -103,3 +92,5 @@
         </plugins>
     </build>
 </project>
+
+<!-- Made with Bob -->

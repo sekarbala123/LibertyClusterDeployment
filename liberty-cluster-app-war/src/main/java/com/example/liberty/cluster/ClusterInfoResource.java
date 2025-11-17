@@ -6,9 +6,8 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.lang.management.ManagementFactory;
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 @Path("/cluster")
 public class ClusterInfoResource {
@@ -17,23 +16,30 @@ public class ClusterInfoResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getClusterInfo() {
         try {
-            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-            ObjectName clusterManagerObjectName = new ObjectName("WebSphere:feature=collectiveController,type=ClusterManager,name=ClusterManager");
-
-            if (mbs.isRegistered(clusterManagerObjectName)) {
-                // This code will execute if the application is running on the collective controller
-                Set<String> clusters = (Set<String>) mbs.invoke(clusterManagerObjectName, "getClusters", null, null);
-                return Response.ok(clusters).build();
-            } else {
-                // If not on the controller, we need to connect to the controller's MBean server.
-                // This is a more complex scenario that requires JMX connection details.
-                // For now, we'll return a message indicating that this is not the controller.
-                return Response.ok("{\"message\": \"This server is not a collective controller.\"}").build();
-            }
+            // Return server information using standard JMX
+            Map<String, Object> serverInfo = new HashMap<>();
+            serverInfo.put("serverName", "Open Liberty Server");
+            serverInfo.put("javaVersion", System.getProperty("java.version"));
+            serverInfo.put("javaVendor", System.getProperty("java.vendor"));
+            serverInfo.put("osName", System.getProperty("os.name"));
+            serverInfo.put("osVersion", System.getProperty("os.version"));
+            serverInfo.put("availableProcessors", Runtime.getRuntime().availableProcessors());
+            serverInfo.put("freeMemory", Runtime.getRuntime().freeMemory());
+            serverInfo.put("totalMemory", Runtime.getRuntime().totalMemory());
+            serverInfo.put("maxMemory", Runtime.getRuntime().maxMemory());
+            
+            // Add MBean server info
+            serverInfo.put("mbeanCount", ManagementFactory.getPlatformMBeanServer().getMBeanCount());
+            serverInfo.put("message", "Open Liberty server running successfully");
+            
+            return Response.ok(serverInfo).build();
         } catch (Exception e) {
             e.printStackTrace();
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            error.put("type", e.getClass().getName());
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                           .entity("{\"error\": \"" + e.getMessage() + "\"}")
+                           .entity(error)
                            .build();
         }
     }
