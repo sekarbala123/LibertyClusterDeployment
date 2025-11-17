@@ -1,4 +1,4 @@
-- Java EE 8
+- Java EE 8 (strictly, not Jakarta EE)
 - JRE 17
 - IBM WebSphere Liberty Server in cluster mode
 - Enable admin console
