@@ -2,29 +2,7 @@
 
 ## Overview
 
-This document explains the clustering configuration implemented in the Liberty Cluster Deployment project. The cluster uses **JCache-based session replication** to share HTTP sessions across all three Liberty servers.
-
-## Clustering Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    WebSphere Liberty Cluster                │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐ │
-│  │  Controller  │    │   Member 1   │    │   Member 2   │ │
-│  │  :9080/9443  │    │  :9081/9444  │    │  :9082/9445  │ │
-│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘ │
-│         │                   │                   │          │
-│         └───────────────────┼───────────────────┘          │
-│                             │                              │
-│                    ┌────────▼────────┐                     │
-│                    │  Session Cache  │                     │
-│                    │   (JCache API)  │                     │
-│                    └─────────────────┘                     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+This document explains the clustering configuration implemented in the Liberty Cluster Deployment project. The cluster uses **WebSphere Liberty Collective** for centralized management.
 
 ## Key Features Configured
 
@@ -92,3 +70,7 @@ Each server has a unique `cloneId` for session identification:
 - `cookieName`: Standard session cookie name (JSESSIONID)
 - `cookiePath`: Session cookie applies to entire application
 - `invalidateOnUnauthorizedSessionRequestException`: Security setting
+
+---
+
+**Last Updated:** 2025-11-17
