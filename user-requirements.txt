@@ -14,3 +14,4 @@
 - Always maintain the user-requirements.txt in the root folder of the project. Save any updates to requirements for future use.
 - The REST endpoints should correctly list all members of the Liberty cluster.
 - The REST endpoint at /api/members should return a JSON array of all collective members.
+- Replace quickStartSecurity with a more secure configuration in the Liberty server.xml.
