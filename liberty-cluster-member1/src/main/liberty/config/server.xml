@@ -5,6 +5,7 @@
         <feature>collectiveMember-1.0</feature>
         <feature>adminCenter-1.0</feature>
         <feature>restConnector-2.0</feature>
+        <feature>appSecurity-2.0</feature>
     </featureManager>
 
     <!-- HTTP endpoint -->
@@ -16,8 +17,9 @@
     <!-- Define the host name for use by the collective. -->
     <variable name="defaultHostName" value="localhost" />
 
-    <!-- TODO: Set the security configuration for Administrative access -->
-    <quickStartSecurity userName="admin" userPassword="admin" />
+    <basicRegistry id="basic" realm="basic">
+        <user name="admin" password="admin" />
+    </basicRegistry>
 
     <!-- clientAuthenticationSupported set to enable bidirectional trust -->
     <ssl id="defaultSSLConfig"
