@@ -1,4 +1,7 @@
 #!/bin/bash
+set -e
+set -u
+set -o pipefail
 
 # Liberty Cluster Stop Script
 # This script stops all cluster members using appropriate methods for each server type

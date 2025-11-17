@@ -1,4 +1,8 @@
 #!/bin/bash
+set -e
+set -u
+set -o pipefail
+
 echo "Stopping all Liberty servers..."
 pkill -f "ws-server.jar controller"
 pkill -f "ws-server.jar member1"

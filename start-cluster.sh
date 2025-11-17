@@ -1,4 +1,7 @@
 #!/bin/bash
+set -e
+set -u
+set -o pipefail
 
 # Liberty Cluster Startup Script
 # This script starts the member servers

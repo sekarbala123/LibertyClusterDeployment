@@ -1,4 +1,7 @@
 #!/bin/bash
+set -e
+set -u
+set -o pipefail
 
 # Liberty Cluster Test Script
 # This script tests all cluster members to verify they're running

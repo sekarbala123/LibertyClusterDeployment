@@ -1,4 +1,7 @@
 #!/bin/bash
+set -e
+set -u
+set -o pipefail
 
 # Script to join Liberty collective members to the controller
 
@@ -17,7 +20,7 @@ BASE_DIR=$(pwd)
 # Join member1
 if [ -d "$BASE_DIR/liberty-cluster-member1/target/liberty/wlp/bin" ]; then
     echo "📍 Joining member1 to collective..."
-    cd "$BASE_DIR/liberty-cluster-member1/target/liberty/wlp/bin"
+    pushd "$BASE_DIR/liberty-cluster-member1/target/liberty/wlp/bin" > /dev/null
     ./collective join member1 --host=localhost --port=9443 --user=admin --password=admin --keystorePassword=Liberty --autoAcceptCertificates --hostName=localhost --rpcUserHome="$HOME" --useCollectiveSSHKey=true
 
     if [ $? -eq 0 ]; then
@@ -25,6 +28,7 @@ if [ -d "$BASE_DIR/liberty-cluster-member1/target/liberty/wlp/bin" ]; then
     else
         echo "❌ Failed to join member1"
     fi
+    popd > /dev/null
 else
     echo "⚠️  member1 build directory not found. Skipping."
 fi
@@ -34,7 +38,7 @@ echo ""
 # Join member2
 if [ -d "$BASE_DIR/liberty-cluster-member2/target/liberty/wlp/bin" ]; then
     echo "📍 Joining member2 to collective..."
-    cd "$BASE_DIR/liberty-cluster-member2/target/liberty/wlp/bin"
+    pushd "$BASE_DIR/liberty-cluster-member2/target/liberty/wlp/bin" > /dev/null
     ./collective join member2 --host=localhost --port=9443 --user=admin --password=admin --keystorePassword=Liberty --autoAcceptCertificates --hostName=localhost --rpcUserHome="$HOME" --useCollectiveSSHKey=true
 
     if [ $? -eq 0 ]; then
@@ -42,11 +46,10 @@ if [ -d "$BASE_DIR/liberty-cluster-member2/target/liberty/wlp/bin" ]; then
     else
         echo "❌ Failed to join member2"
     fi
+    popd > /dev/null
 else
     echo "⚠️  member2 build directory not found. Skipping."
 fi
-
-cd $BASE_DIR
 
 echo ""
 echo "✅ Collective member join process completed"
