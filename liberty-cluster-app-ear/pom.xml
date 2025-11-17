@@ -91,6 +91,7 @@
                         <feature>adminCenter-1.0</feature>
                         <feature>restConnector-2.0</feature>
                         <feature>collectiveController-1.0</feature>
+                        <feature>ssl-1.0</feature>
                     </features>
                 </configuration>
                 <executions>

@@ -32,50 +32,72 @@ public class CollectiveMembersResource {
             
             List<Map<String, Object>> members = new ArrayList<>();
             
-            // Query the CollectiveRepository MBean to get list of hosts
+            // Query the CollectiveRepository MBean to navigate the repository structure
             ObjectName repoMBean = new ObjectName("WebSphere:feature=collectiveController,type=CollectiveRepository,name=CollectiveRepository");
             
             if (mbs.isRegistered(repoMBean)) {
                 try {
-                    // Invoke listHosts operation to get all registered hosts
-                    Object hostsResult = mbs.invoke(repoMBean, "listHosts", new Object[]{}, new String[]{});
+                    // Navigate the repository structure to find hosts
+                    // The repository structure is typically: /hosts/<hostname>/servers/<servername>
                     
-                    if (hostsResult != null) {
-                        // hostsResult should be a CompositeData array or similar
-                        System.out.println("Hosts result type: " + hostsResult.getClass().getName());
-                        System.out.println("Hosts result: " + hostsResult);
+                    // Check if /hosts node exists
+                    Boolean hostsExists = (Boolean) mbs.invoke(repoMBean, "exists",
+                        new Object[]{"/hosts"}, new String[]{"java.lang.String"});
+                    
+                    if (hostsExists != null && hostsExists) {
+                        // Get all host children
+                        @SuppressWarnings("unchecked")
+                        java.util.Collection<String> hostNames = (java.util.Collection<String>) mbs.invoke(repoMBean, "getChildren",
+                            new Object[]{"/hosts", false}, new String[]{"java.lang.String", "boolean"});
                         
-                        if (hostsResult instanceof CompositeData[]) {
-                            CompositeData[] hosts = (CompositeData[]) hostsResult;
-                            for (CompositeData host : hosts) {
+                        System.out.println("Found hosts: " + hostNames);
+                        
+                        if (hostNames != null) {
+                            for (String hostName : hostNames) {
                                 Map<String, Object> hostInfo = new HashMap<>();
                                 hostInfo.put("type", "host");
+                                hostInfo.put("hostName", hostName);
                                 
-                                // Extract host information
-                                for (String key : host.getCompositeType().keySet()) {
-                                    Object value = host.get(key);
-                                    hostInfo.put(key, value != null ? value.toString() : null);
+                                // Get host data
+                                try {
+                                    Object hostData = mbs.invoke(repoMBean, "getData",
+                                        new Object[]{"/hosts/" + hostName}, new String[]{"java.lang.String"});
+                                    if (hostData != null) {
+                                        hostInfo.put("data", hostData.toString());
+                                    }
+                                } catch (Exception e) {
+                                    System.err.println("Error getting host data: " + e.getMessage());
                                 }
                                 
                                 members.add(hostInfo);
                                 
                                 // Try to get servers for this host
                                 try {
-                                    String hostName = (String) host.get("hostName");
-                                    if (hostName != null) {
-                                        Object serversResult = mbs.invoke(repoMBean, "listServers",
-                                            new Object[]{hostName}, new String[]{"java.lang.String"});
+                                    String serversPath = "/hosts/" + hostName + "/servers";
+                                    Boolean serversExists = (Boolean) mbs.invoke(repoMBean, "exists",
+                                        new Object[]{serversPath}, new String[]{"java.lang.String"});
+                                    
+                                    if (serversExists != null && serversExists) {
+                                        @SuppressWarnings("unchecked")
+                                        java.util.Collection<String> serverNames = (java.util.Collection<String>) mbs.invoke(repoMBean, "getChildren",
+                                            new Object[]{serversPath, false}, new String[]{"java.lang.String", "boolean"});
                                         
-                                        if (serversResult instanceof CompositeData[]) {
-                                            CompositeData[] servers = (CompositeData[]) serversResult;
-                                            for (CompositeData server : servers) {
+                                        if (serverNames != null) {
+                                            for (String serverName : serverNames) {
                                                 Map<String, Object> serverInfo = new HashMap<>();
                                                 serverInfo.put("type", "server");
                                                 serverInfo.put("hostName", hostName);
+                                                serverInfo.put("serverName", serverName);
                                                 
-                                                for (String key : server.getCompositeType().keySet()) {
-                                                    Object value = server.get(key);
-                                                    serverInfo.put(key, value != null ? value.toString() : null);
+                                                // Get server data
+                                                try {
+                                                    Object serverData = mbs.invoke(repoMBean, "getData",
+                                                        new Object[]{serversPath + "/" + serverName}, new String[]{"java.lang.String"});
+                                                    if (serverData != null) {
+                                                        serverInfo.put("data", serverData.toString());
+                                                    }
+                                                } catch (Exception e) {
+                                                    System.err.println("Error getting server data: " + e.getMessage());
                                                 }
                                                 
                                                 members.add(serverInfo);
@@ -83,15 +105,19 @@ public class CollectiveMembersResource {
                                         }
                                     }
                                 } catch (Exception e) {
-                                    System.err.println("Error getting servers for host: " + e.getMessage());
+                                    System.err.println("Error getting servers for host " + hostName + ": " + e.getMessage());
                                 }
                             }
                         }
+                    } else {
+                        System.out.println("/hosts node does not exist in repository");
                     }
                 } catch (Exception e) {
-                    System.err.println("Error invoking listHosts: " + e.getMessage());
+                    System.err.println("Error navigating repository: " + e.getMessage());
                     e.printStackTrace();
                 }
+            } else {
+                System.err.println("CollectiveRepository MBean not registered");
             }
             
             Map<String, Object> response = new HashMap<>();
