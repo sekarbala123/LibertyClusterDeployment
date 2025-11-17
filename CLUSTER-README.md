@@ -2,7 +2,7 @@
 
 ## 🎯 What You Have
 
-A complete **3-server Open Liberty cluster** ready to run:
+A complete **3-server WebSphere Liberty cluster** ready to run:
 
 - **Controller** (Port 9080/9443)
 - **Member 1** (Port 9081/9444)
@@ -148,7 +148,7 @@ Each server should return JSON with server information:
 ```json
 {
   "serverName": "Open Liberty Server",
-  "javaVersion": "24.0.1",
+  "javaVersion": "1.8",
   "osName": "Mac OS X",
   "availableProcessors": 8,
   "freeMemory": 123456789,
@@ -256,7 +256,9 @@ done
 Edit `server.xml` for each server:
 
 ```xml
-<quickStartSecurity userName="newuser" userPassword="newpassword" />
+<basicRegistry id="basic" realm="basic">
+    <user name="newuser" password="newpassword" />
+</basicRegistry>
 ```
 
 ### Production Security

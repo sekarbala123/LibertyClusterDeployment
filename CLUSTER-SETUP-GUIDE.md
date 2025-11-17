@@ -1,4 +1,4 @@
-# Open Liberty Cluster Setup Guide
+# WebSphere Liberty Cluster Setup Guide
 
 ## 📋 Overview
 
@@ -12,7 +12,7 @@ This guide explains how to set up multiple Open Liberty server instances to work
 graph TB
     LB[Load Balancer<br/>nginx/Apache]
     
-    subgraph "Open Liberty Cluster"
+    subgraph "WebSphere Liberty Cluster"
         Server1[Server 1 - controller<br/>Port: 9080/9443]
         Server2[Server 2 - member1<br/>Port: 9081/9444]
         Server3[Server 3 - member2<br/>Port: 9082/9445]
@@ -53,135 +53,7 @@ graph TB
 
 ---
 
-## 📝 Method 1: Multiple Server Instances (Simple Clustering)
 
-### Step 1: Create Additional Server Configurations
-
-Create a new module for the second server:
-
-```bash
-# From project root
-mkdir -p liberty-cluster-member1
-cd liberty-cluster-member1
-```
-
-Create `pom.xml` for member1:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
-         http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-
-    <parent>
-        <groupId>com.example</groupId>
-        <artifactId>liberty-cluster-app-parent</artifactId>
-        <version>1.0-SNAPSHOT</version>
-    </parent>
-
-    <artifactId>liberty-cluster-member1</artifactId>
-    <packaging>pom</packaging>
-
-    <dependencies>
-        <dependency>
-            <groupId>com.example</groupId>
-            <artifactId>liberty-cluster-app-ear</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <type>ear</type>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>io.openliberty.tools</groupId>
-                <artifactId>liberty-maven-plugin</artifactId>
-                <version>${liberty.maven.plugin.version}</version>
-                <configuration>
-                    <serverName>member1</serverName>
-                    <runtimeArtifact>
-                        <groupId>io.openliberty</groupId>
-                        <artifactId>openliberty-runtime</artifactId>
-                        <version>25.0.0.11</version>
-                        <type>zip</type>
-                    </runtimeArtifact>
-                    <configDirectory>${project.basedir}/src/main/liberty/config</configDirectory>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-</project>
-```
-
-### Step 2: Create Server Configuration for Member1
-
-Create directory structure:
-```bash
-mkdir -p src/main/liberty/config
-```
-
-Create `src/main/liberty/config/server.xml`:
-
-```xml
-<server description="Open Liberty Cluster Member 1">
-
-    <featureManager>
-        <feature>javaee-8.0</feature>
-        <feature>sessionDatabase-1.0</feature>
-        <!-- For session replication -->
-    </featureManager>
-
-    <!-- Different ports from controller -->
-    <httpEndpoint id="defaultHttpEndpoint"
-                  host="*"
-                  httpPort="9081"
-                  httpsPort="9444" />
-
-    <quickStartSecurity userName="admin" userPassword="adminpwd" />
-
-    <applicationManager autoExpand="true"/>
-
-    <!-- Reference to the EAR application -->
-    <application type="ear"
-                 id="liberty-cluster-app"
-                 location="${shared.app.dir}/liberty-cluster-app-ear-1.0-SNAPSHOT.ear"
-                 name="liberty-cluster-app"/>
-
-    <keyStore id="defaultKeyStore" password="Liberty" />
-
-    <!-- Session configuration for clustering -->
-    <httpSession cloneId="member1" />
-
-</server>
-```
-
-### Step 3: Update Parent POM
-
-Add the new module to parent `pom.xml`:
-
-```xml
-<modules>
-    <module>liberty-cluster-app-war</module>
-    <module>liberty-cluster-app-ear</module>
-    <module>liberty-cluster-member1</module>
-</modules>
-```
-
-### Step 4: Start Multiple Servers
-
-```bash
-# Terminal 1 - Start controller
-cd liberty-cluster-app-ear
-mvn liberty:dev
-
-# Terminal 2 - Start member1
-cd liberty-cluster-member1
-mvn liberty:dev
-```
-
----
 
 ## 📝 Method 2: Session Replication with Database
 
@@ -669,6 +541,6 @@ kill -9 <PID>
 
 ---
 
-**Last Updated:** 2025-11-12  
+**Last Updated:** 2025-11-17  
 **Version:** 1.0  
-**For:** Open Liberty 25.0.0.11
+**For:** WebSphere Liberty 24.0.0.12
