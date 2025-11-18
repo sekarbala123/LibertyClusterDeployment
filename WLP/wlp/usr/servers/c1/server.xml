@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<server description="new server">
+
+    <featureManager>
+        <feature>collectiveController-1.0</feature>
+        <feature>adminCenter-1.0</feature>
+    </featureManager>
+
+    <!-- Define the host name for use by the collective.
+         If the host name needs to be changed, the server should be
+         removed from the collective and re-joined or re-replicated. -->
+    <variable name="defaultHostName" value="localhost" />
+
+    <httpEndpoint id="defaultHttpEndpoint"
+                host="localhost"
+                httpPort="9080"
+                httpsPort="9443" />
+
+
+    <!-- Set the security configuration for Administrative access -->
+    <quickStartSecurity userName="admin" userPassword="adminpwd" />
+
+    <hostAuthInfo rpcUser="admin" rpcUserPassword="adminpwd" />
+
+    <!-- clientAuthenticationSupported set to enable bidirectional trust -->
+    <ssl id="defaultSSLConfig"
+         keyStoreRef="defaultKeyStore"
+         trustStoreRef="defaultTrustStore"
+         clientAuthenticationSupported="true" />
+
+    <!-- inbound (HTTPS) keystore -->
+    <keyStore id="defaultKeyStore" password="{xor}PjsyNjEvKDs="
+              location="${server.config.dir}/resources/security/key.p12" />
+
+    <!-- inbound (HTTPS) truststore -->
+    <keyStore id="defaultTrustStore" password="{xor}PjsyNjEvKDs="
+              location="${server.config.dir}/resources/security/trust.p12" />
+
+    <!-- server identity keystore -->
+    <keyStore id="serverIdentity" password="{xor}PjsyNjEvKDs="
+              location="${server.config.dir}/resources/collective/serverIdentity.p12" />
+
+    <!-- collective trust keystore -->
+    <keyStore id="collectiveTrust" password="{xor}PjsyNjEvKDs="
+              location="${server.config.dir}/resources/collective/collectiveTrust.p12" />
+
+    <!-- collective root signers keystore -->
+    <keyStore id="collectiveRootKeys" password="{xor}PjsyNjEvKDs="
+              location="${server.config.dir}/resources/collective/rootKeys.p12" />
+    
+    <remoteFileAccess>
+        <writeDir>${server.config.dir}</writeDir>
+    </remoteFileAccess>
+
+</server>
