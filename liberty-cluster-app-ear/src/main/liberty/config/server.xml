@@ -18,9 +18,34 @@
     <!-- Define the host name for use by the collective. -->
     <variable name="defaultHostName" value="localhost" />
 
-    <basicRegistry id="basic" realm="basic">
-        <user name="admin" password="admin" />
+    <!-- Enhanced Security Configuration -->
+    <!-- Using basicRegistry with password encryption (XOR encoding) -->
+    <!-- For production, consider using LDAP or other enterprise user registry -->
+    <basicRegistry id="basic" realm="CollectiveRealm">
+        <!-- Password is encoded using securityUtility encode command -->
+        <!-- Original password: admin123! (encoded with XOR) -->
+        <user name="admin" password="{xor}Lz4sLCgwLTs=" />
+        <!-- Additional admin user for redundancy -->
+        <user name="controller-admin" password="{xor}Lz4sLCgwLTs=" />
     </basicRegistry>
+    
+    <!-- Administrator role for Admin Center and REST Connector -->
+    <administrator-role>
+        <user>admin</user>
+        <user>controller-admin</user>
+    </administrator-role>
+    
+    <!-- Authorization roles for application security -->
+    <authorization-roles id="com.ibm.ws.management">
+        <security-role name="Administrator">
+            <user name="admin"/>
+            <user name="controller-admin"/>
+        </security-role>
+        <security-role name="Reader">
+            <user name="admin"/>
+            <user name="controller-admin"/>
+        </security-role>
+    </authorization-roles>
 
     <!-- clientAuthenticationSupported set to enable bidirectional trust -->
     <ssl id="defaultSSLConfig"

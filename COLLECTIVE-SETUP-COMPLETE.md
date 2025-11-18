@@ -56,16 +56,16 @@ cd liberty-cluster-member2/target/liberty/wlp/bin
 ### Admin Centers
 - **Controller**: https://localhost:9443/adminCenter/
   - Username: `admin`
-  - Password: `adminpwd`
+  - Password: `admin`
   - Features: Full collective management, file editing, application deployment
 
 - **Member 1**: https://localhost:9444/adminCenter/
   - Username: `admin`
-  - Password: `adminpwd`
+  - Password: `admin`
 
 - **Member 2**: https://localhost:9445/adminCenter/
   - Username: `admin`
-  - Password: `adminpwd`
+  - Password: `admin`
 
 ### REST API Endpoints (Controller Only)
 - Cluster Info: http://localhost:9080/liberty-cluster-app/api/cluster
@@ -399,8 +399,8 @@ CWWKX8112I: The server's host information was successfully published to the coll
 ---
 
 **Setup Completed**: 2025-11-17  
-**Liberty Version**: 22.0.0.1  
-**Java Version**: 17  
+**Liberty Version**: 24.0.0.12  
+**Java Version**: 1.8  
 **Status**: ✅ Production Ready
 
 ---

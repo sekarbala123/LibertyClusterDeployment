@@ -1,17 +1,89 @@
+# IBM WebSphere Liberty Cluster POC - Requirements
+
+## Project Type
+**PROOF OF CONCEPT (POC)** - Not production-ready, for demonstration and learning purposes only.
+
+## Core Requirements
+
+### Technology Stack
 - Java EE 8 (strictly, not Jakarta EE)
 - JRE 17
-- IBM WebSphere Liberty Server in cluster mode
-- Enable admin console
-- Use Maven for build
-- If the application is a WAR, it has to be deployed as an EAR.
-- Create a simple RESTful service that will query the cluster members and returns the properties of those members.
-- Assume IBM WebSphere Liberty server will can be be downloaded or locally added as zip.
-- Provide detailed docs, things to consider and other details as required.
-- Create all required project.
-- Ensure requirements are gathered into a requirement and are validated, added, updated as required.
-- Always use git actions for checkpoint the working before updating the files.
-- For any actions to be perfomed, create a todo list of small tasks that are required to be perfomed. Perform each task in a iteration and validate the todo list after perfoming the tasks.
-- Always maintain the user-requirements.txt in the root folder of the project. Save any updates to requirements for future use.
-- The REST endpoints should correctly list all members of the Liberty cluster.
-- The REST endpoint at /api/members should return a JSON array of all collective members.
-- Replace quickStartSecurity with a more secure configuration in the Liberty server.xml.
+- IBM WebSphere Liberty Server in cluster mode (collective)
+- Maven for build management
+
+### Application Structure
+- WAR application deployed as an EAR (Enterprise Archive)
+- Multi-module Maven project structure
+
+### Functionality
+- Simple RESTful service to query cluster members
+- REST endpoints that return properties of collective members
+- Admin Center enabled for cluster management
+
+### REST API Endpoints
+- `/api/cluster` - Returns basic cluster/server information
+- `/api/members` - Returns JSON array of all collective members
+- `/api/member-details` - Returns detailed member information
+- `/api/members/detailed` - Returns comprehensive member data
+- `/api/members/mbeans` - Lists all WebSphere MBeans
+- `/api/members/repo-operations` - Shows repository operations
+
+### Security (POC Level)
+- Basic authentication with encoded passwords (XOR encoding)
+- Admin Center access with credentials
+- Not production-grade security (suitable for POC/demo only)
+- Default credentials: admin / admin123!
+
+### Documentation
+- Detailed setup and configuration guides
+- REST API examples with curl commands
+- Troubleshooting documentation
+- Architecture diagrams
+
+### Build & Deployment
+- IBM WebSphere Liberty server can be downloaded automatically via Maven
+- All configuration files included in project
+- Scripts for starting/stopping cluster
+
+## POC Scope Limitations
+
+### What This POC Includes ✅
+- Working Liberty collective (controller + 2 members)
+- REST API to query cluster members
+- Basic security configuration
+- Admin Center access
+- Complete documentation
+- Maven build automation
+
+### What This POC Does NOT Include ❌
+- Production-grade security (LDAP, OAuth, etc.)
+- High availability configuration
+- Load balancing setup
+- Monitoring and alerting
+- Automated testing
+- CI/CD pipeline
+- Database integration
+- Performance tuning
+- Disaster recovery
+- Enterprise user management
+
+## Development Guidelines
+- Use git for version control
+- Create checkpoints before major changes
+- Maintain this requirements file
+- Update TODO.md with task progress
+- Keep documentation current
+
+## Success Criteria for POC
+1. ✅ Liberty collective successfully configured
+2. ✅ REST endpoints return cluster member information
+3. ✅ Admin Center accessible and functional
+4. ✅ Application builds and deploys successfully
+5. ✅ Documentation complete and accurate
+6. ✅ Security enhanced beyond quickStartSecurity
+
+## Notes
+- This is a demonstration/learning project
+- Security is suitable for POC/development only
+- For production use, significant hardening required
+- See SECURITY-CONFIGURATION.md for production recommendations

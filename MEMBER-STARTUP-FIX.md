@@ -69,10 +69,9 @@ Configured to create the server and install features during the pre-integration-
         <serverName>member1</serverName> <!-- or member2 -->
         <deployPackages>dependencies</deployPackages>
         <runtimeArtifact>
-            <groupId>io.openliberty</groupId>
-            <artifactId>openliberty-runtime</artifactId>
-            <version>25.0.0.11</version>
-            <type>zip</type>
+                                <groupId>com.ibm.websphere.appserver.runtime</groupId>
+                                <artifactId>wlp-kernel</artifactId>
+                                <version>24.0.0.12</version>            <type>zip</type>
         </runtimeArtifact>
         <bootstrapProperties>
             <app.location>${project.build.directory}/apps/liberty-cluster-app-ear-${project.version}.ear</app.location>
@@ -172,9 +171,9 @@ curl http://localhost:9082/liberty-cluster-app/api/cluster
 ```
 
 ### Admin Centers:
-- Controller: https://localhost:9443/adminCenter/ (admin/adminpwd)
-- Member 1: https://localhost:9444/adminCenter/ (admin/adminpwd)
-- Member 2: https://localhost:9445/adminCenter/ (admin/adminpwd)
+- Controller: https://localhost:9443/adminCenter/ (admin/admin)
+- Member 1: https://localhost:9444/adminCenter/ (admin/admin)
+- Member 2: https://localhost:9445/adminCenter/ (admin/admin)
 
 ## Key Differences: liberty:dev vs liberty:run
 

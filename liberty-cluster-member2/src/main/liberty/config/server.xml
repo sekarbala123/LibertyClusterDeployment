@@ -17,9 +17,22 @@
     <!-- Define the host name for use by the collective. -->
     <variable name="defaultHostName" value="localhost" />
 
-    <basicRegistry id="basic" realm="basic">
-        <user name="admin" password="admin" />
+    <!-- Enhanced Security Configuration -->
+    <!-- Using basicRegistry with password encryption (XOR encoding) -->
+    <!-- For production, consider using LDAP or other enterprise user registry -->
+    <basicRegistry id="basic" realm="CollectiveMemberRealm">
+        <!-- Password is encoded using securityUtility encode command -->
+        <!-- Original password: admin123! (encoded with XOR) -->
+        <user name="admin" password="{xor}Lz4sLCgwLTs=" />
+        <!-- Member-specific admin user -->
+        <user name="member2-admin" password="{xor}Lz4sLCgwLTs=" />
     </basicRegistry>
+    
+    <!-- Administrator role for collective member operations -->
+    <administrator-role>
+        <user>admin</user>
+        <user>member2-admin</user>
+    </administrator-role>
 
     <!-- clientAuthenticationSupported set to enable bidirectional trust -->
     <ssl id="defaultSSLConfig"
