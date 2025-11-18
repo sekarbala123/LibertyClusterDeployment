@@ -1,0 +1,3 @@
+The following information is being displayed in the collector controller server c1 's admin center web page, can this be fixed ? Server information could not be retrieved.
+
+Error 500: CWWKX0261E: The host authentication information for the host localhost is not available. The node /sys.was.collectives/local/hosts/localhost/sys.host.auth.info does not exist in the repository.
