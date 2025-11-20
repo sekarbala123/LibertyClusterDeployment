@@ -19,6 +19,7 @@
     <modules>
         <module>liberty-cluster-app-war</module>
         <module>liberty-cluster-app-ear</module>
+        <module>liberty-cluster-member-app</module>
         <module>liberty-cluster-member1</module>
         <module>liberty-cluster-member2</module>
     </modules>
@@ -75,6 +76,7 @@
                             <feature>jaxrs-2.1</feature>
                             <feature>servlet-4.0</feature>
                             <feature>cdi-2.0</feature>
+                            <feature>ejb-3.2</feature>
                             <feature>jsonp-1.1</feature>
                             <feature>jsonb-1.0</feature>
                             <feature>adminCenter-1.0</feature>

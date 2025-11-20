@@ -12,6 +12,7 @@ import javax.management.MBeanParameterInfo;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.lang.management.ManagementFactory;
@@ -328,6 +329,335 @@ public class CollectiveMembersResource {
             error.put("message", e.getMessage());
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(error).build();
         }
+    }
+    
+    /**
+     * Get cluster members by cluster name with host IP/name and HTTPS port information.
+     * This endpoint queries the collective controller for members of a specific cluster.
+     *
+     * @param clusterName The name of the cluster to query (required query parameter)
+     * @return JSON response containing cluster member details including host and HTTPS port
+     */
+    @GET
+    @Path("/cluster")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getClusterMembers(@QueryParam("clusterName") String clusterName) {
+        try {
+            // Validate input
+            if (clusterName == null || clusterName.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Missing required parameter: clusterName");
+                errorResponse.put("usage", "GET /members/cluster?clusterName=<cluster-name>");
+                return Response.status(Response.Status.BAD_REQUEST).entity(errorResponse).build();
+            }
+            
+            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+            
+            // Verify this is running on a collective controller
+            ObjectName controllerMBeanName = new ObjectName("WebSphere:feature=collectiveController,type=CollectiveRepository,name=CollectiveRepository");
+            if (!mbs.isRegistered(controllerMBeanName)) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "This endpoint must be deployed on a Liberty Collective Controller");
+                errorResponse.put("mbean_not_found", controllerMBeanName.toString());
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(errorResponse).build();
+            }
+            
+            System.out.println("Querying cluster members for cluster: " + clusterName);
+            
+            List<Map<String, Object>> clusterMembers = new ArrayList<>();
+            
+            // Query for all server MBeans in the collective
+            ObjectName serverQuery = new ObjectName("WebSphere:feature=collectiveController,type=Server,*");
+            Set<ObjectName> serverMBeans = mbs.queryNames(serverQuery, null);
+            
+            System.out.println("Found " + serverMBeans.size() + " server MBeans in the collective");
+            
+            for (ObjectName serverMBean : serverMBeans) {
+                try {
+                    // Get cluster information for this server
+                    Object clusterAttr = null;
+                    try {
+                        clusterAttr = mbs.getAttribute(serverMBean, "Cluster");
+                    } catch (Exception e) {
+                        // Server might not have cluster attribute
+                        continue;
+                    }
+                    
+                    // Check if this server belongs to the requested cluster
+                    if (clusterAttr != null && clusterName.equals(clusterAttr.toString())) {
+                        Map<String, Object> memberInfo = new HashMap<>();
+                        
+                        // Extract server name
+                        String serverName = serverMBean.getKeyProperty("name");
+                        memberInfo.put("serverName", serverName);
+                        memberInfo.put("clusterName", clusterName);
+                        
+                        // Get host information
+                        try {
+                            Object hostAttr = mbs.getAttribute(serverMBean, "Host");
+                            if (hostAttr != null) {
+                                memberInfo.put("host", hostAttr.toString());
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Could not get Host attribute for " + serverName);
+                        }
+                        
+                        // Get hostname
+                        try {
+                            Object hostNameAttr = mbs.getAttribute(serverMBean, "HostName");
+                            if (hostNameAttr != null) {
+                                memberInfo.put("hostName", hostNameAttr.toString());
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Could not get HostName attribute for " + serverName);
+                        }
+                        
+                        // Get HTTPS port
+                        try {
+                            Object httpsPortAttr = mbs.getAttribute(serverMBean, "HttpsPort");
+                            if (httpsPortAttr != null) {
+                                memberInfo.put("httpsPort", httpsPortAttr.toString());
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Could not get HttpsPort attribute for " + serverName);
+                        }
+                        
+                        // Get HTTP port (optional)
+                        try {
+                            Object httpPortAttr = mbs.getAttribute(serverMBean, "HttpPort");
+                            if (httpPortAttr != null) {
+                                memberInfo.put("httpPort", httpPortAttr.toString());
+                            }
+                        } catch (Exception e) {
+                            // HTTP port might not be configured
+                        }
+                        
+                        // Get server state
+                        try {
+                            Object stateAttr = mbs.getAttribute(serverMBean, "State");
+                            if (stateAttr != null) {
+                                memberInfo.put("state", stateAttr.toString());
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Could not get State attribute for " + serverName);
+                        }
+                        
+                        // Get user directory
+                        try {
+                            Object userDirAttr = mbs.getAttribute(serverMBean, "UserDir");
+                            if (userDirAttr != null) {
+                                memberInfo.put("userDir", userDirAttr.toString());
+                            }
+                        } catch (Exception e) {
+                            // Optional attribute
+                        }
+                        
+                        // Get WLP install directory
+                        try {
+                            Object wlpInstallDirAttr = mbs.getAttribute(serverMBean, "WlpInstallDir");
+                            if (wlpInstallDirAttr != null) {
+                                memberInfo.put("wlpInstallDir", wlpInstallDirAttr.toString());
+                            }
+                        } catch (Exception e) {
+                            // Optional attribute
+                        }
+                        
+                        // Get application MBean states from this member server
+                        String hostForQuery = memberInfo.get("hostName") != null ?
+                            memberInfo.get("hostName").toString() :
+                            (memberInfo.get("host") != null ? memberInfo.get("host").toString() : "localhost");
+                        
+                        List<Map<String, Object>> applications = getApplicationMBeansFromMember(mbs, serverName, hostForQuery);
+                        if (!applications.isEmpty()) {
+                            memberInfo.put("applications", applications);
+                            memberInfo.put("applicationCount", applications.size());
+                        } else {
+                            memberInfo.put("applications", new ArrayList<>());
+                            memberInfo.put("applicationCount", 0);
+                        }
+                        
+                        clusterMembers.add(memberInfo);
+                        System.out.println("Added cluster member: " + serverName + " from cluster: " + clusterName +
+                                         " with " + applications.size() + " applications");
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error processing server MBean " + serverMBean + ": " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+            
+            // Build response
+            Map<String, Object> response = new HashMap<>();
+            response.put("clusterName", clusterName);
+            response.put("memberCount", clusterMembers.size());
+            response.put("members", clusterMembers);
+            response.put("timestamp", System.currentTimeMillis());
+            
+            if (clusterMembers.isEmpty()) {
+                response.put("message", "No members found for cluster: " + clusterName);
+                return Response.status(Response.Status.NOT_FOUND).entity(response).build();
+            }
+            
+            return Response.ok(response).build();
+            
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Failed to query cluster members");
+            error.put("message", e.getMessage());
+            error.put("type", e.getClass().getName());
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(error).build();
+        }
+    }
+    
+    /**
+     * Helper method to query application MBean states from a member server through the controller.
+     *
+     * @param mbs MBeanServer instance
+     * @param serverName Name of the member server
+     * @param hostName Hostname of the member server
+     * @return List of application MBean information
+     */
+    private List<Map<String, Object>> getApplicationMBeansFromMember(MBeanServer mbs, String serverName, String hostName) {
+        List<Map<String, Object>> applications = new ArrayList<>();
+        
+        try {
+            // Query for application MBeans on the specific member server
+            // Pattern: WebSphere:feature=collectiveController,type=Runtime,name=<host>,host=<host>,server=<server>,*
+            String mbeanPattern = String.format(
+                "WebSphere:feature=collectiveController,type=Runtime,name=%s,host=%s,server=%s,*",
+                hostName, hostName, serverName
+            );
+            
+            ObjectName runtimeQuery = new ObjectName(mbeanPattern);
+            Set<ObjectName> runtimeMBeans = mbs.queryNames(runtimeQuery, null);
+            
+            System.out.println("Found " + runtimeMBeans.size() + " runtime MBeans for server: " + serverName);
+            
+            // Also try alternative pattern for application MBeans
+            String appPattern = String.format(
+                "WebSphere:feature=collectiveController,type=Runtime,name=%s,*,j2eeType=Application,*",
+                hostName
+            );
+            
+            ObjectName appQuery = new ObjectName(appPattern);
+            Set<ObjectName> appMBeans = mbs.queryNames(appQuery, null);
+            
+            System.out.println("Found " + appMBeans.size() + " application MBeans for server: " + serverName);
+            
+            // Process application MBeans
+            for (ObjectName appMBean : appMBeans) {
+                try {
+                    Map<String, Object> appInfo = new HashMap<>();
+                    
+                    // Extract application name from MBean
+                    String appName = appMBean.getKeyProperty("name");
+                    if (appName != null) {
+                        appInfo.put("applicationName", appName);
+                    }
+                    
+                    // Get j2eeType
+                    String j2eeType = appMBean.getKeyProperty("j2eeType");
+                    if (j2eeType != null) {
+                        appInfo.put("j2eeType", j2eeType);
+                    }
+                    
+                    // Try to get application state
+                    try {
+                        Object state = mbs.getAttribute(appMBean, "state");
+                        if (state != null) {
+                            appInfo.put("state", state.toString());
+                        }
+                    } catch (Exception e) {
+                        // State attribute might not be available
+                    }
+                    
+                    // Try to get deployment descriptor
+                    try {
+                        Object deploymentDescriptor = mbs.getAttribute(appMBean, "deploymentDescriptor");
+                        if (deploymentDescriptor != null) {
+                            appInfo.put("deploymentDescriptor", deploymentDescriptor.toString());
+                        }
+                    } catch (Exception e) {
+                        // Attribute might not be available
+                    }
+                    
+                    // Get all available attributes
+                    try {
+                        MBeanInfo mbeanInfo = mbs.getMBeanInfo(appMBean);
+                        MBeanAttributeInfo[] attributes = mbeanInfo.getAttributes();
+                        Map<String, Object> allAttributes = new HashMap<>();
+                        
+                        for (MBeanAttributeInfo attr : attributes) {
+                            if (attr.isReadable()) {
+                                try {
+                                    Object value = mbs.getAttribute(appMBean, attr.getName());
+                                    if (value != null) {
+                                        allAttributes.put(attr.getName(), value.toString());
+                                    }
+                                } catch (Exception e) {
+                                    // Skip attributes that can't be read
+                                }
+                            }
+                        }
+                        
+                        if (!allAttributes.isEmpty()) {
+                            appInfo.put("attributes", allAttributes);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error reading MBean attributes: " + e.getMessage());
+                    }
+                    
+                    appInfo.put("mbeanObjectName", appMBean.toString());
+                    applications.add(appInfo);
+                    
+                } catch (Exception e) {
+                    System.err.println("Error processing application MBean " + appMBean + ": " + e.getMessage());
+                }
+            }
+            
+            // If no application MBeans found, try to get general runtime information
+            if (applications.isEmpty() && !runtimeMBeans.isEmpty()) {
+                for (ObjectName runtimeMBean : runtimeMBeans) {
+                    try {
+                        Map<String, Object> runtimeInfo = new HashMap<>();
+                        runtimeInfo.put("mbeanObjectName", runtimeMBean.toString());
+                        runtimeInfo.put("type", runtimeMBean.getKeyProperty("type"));
+                        
+                        // Get available attributes
+                        MBeanInfo mbeanInfo = mbs.getMBeanInfo(runtimeMBean);
+                        MBeanAttributeInfo[] attributes = mbeanInfo.getAttributes();
+                        Map<String, Object> attrValues = new HashMap<>();
+                        
+                        for (MBeanAttributeInfo attr : attributes) {
+                            if (attr.isReadable()) {
+                                try {
+                                    Object value = mbs.getAttribute(runtimeMBean, attr.getName());
+                                    if (value != null) {
+                                        attrValues.put(attr.getName(), value.toString());
+                                    }
+                                } catch (Exception e) {
+                                    // Skip
+                                }
+                            }
+                        }
+                        
+                        if (!attrValues.isEmpty()) {
+                            runtimeInfo.put("attributes", attrValues);
+                            applications.add(runtimeInfo);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error processing runtime MBean: " + e.getMessage());
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error querying application MBeans for server " + serverName + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return applications;
     }
 }
 

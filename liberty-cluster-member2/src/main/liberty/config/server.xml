@@ -6,6 +6,12 @@
         <feature>adminCenter-1.0</feature>
         <feature>restConnector-2.0</feature>
         <feature>appSecurity-2.0</feature>
+        <feature>jaxrs-2.1</feature>
+        <feature>servlet-4.0</feature>
+        <feature>cdi-2.0</feature>
+        <feature>ejb-3.2</feature>
+        <feature>jsonp-1.1</feature>
+        <feature>jsonb-1.0</feature>
     </featureManager>
 
     <!-- HTTP endpoint -->
@@ -55,5 +61,16 @@
     <!-- collective truststore -->
     <keyStore id="collectiveTrust" password="Liberty"
               location="${server.config.dir}/resources/collective/collectiveTrust.p12" />
+
+    <!-- Application Configuration -->
+    <application id="member-app"
+                 name="member-app"
+                 location="${shared.app.dir}/member-app.war"
+                 type="war">
+        <classloader delegation="parentLast" />
+    </application>
+    
+    <!-- System properties for member identification -->
+    <variable name="member.name" value="member2" />
 
 </server>
