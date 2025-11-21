@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<server description="Liberty Collective Controller Server">
+
+    <!-- Enable features -->
+    <featureManager>
+        <feature>jaxrs-2.1</feature>
+        <feature>jsonp-1.1</feature>
+        <feature>cdi-2.0</feature>
+        <feature>collectiveController-1.0</feature>
+        <feature>restConnector-2.0</feature>
+        <feature>ssl-1.0</feature>
+    </featureManager>
+
+    <!-- HTTP Endpoint -->
+    <httpEndpoint id="defaultHttpEndpoint"
+                  httpPort="9080"
+                  httpsPort="9443"
+                  host="*" />
+
+    <!-- Application Configuration -->
+    <webApplication id="controller-mbean-app" 
+                    location="controller-mbean-app.war" 
+                    name="controller-mbean-app"
+                    contextRoot="/controller-mbean-app">
+        <classloader delegation="parentLast" />
+    </webApplication>
+
+    <!-- Basic Registry for Admin User -->
+    <basicRegistry id="basic" realm="BasicRealm">
+        <user name="admin" password="admin" />
+    </basicRegistry>
+
+    <!-- Administrator Role -->
+    <administrator-role>
+        <user>admin</user>
+    </administrator-role>
+
+    <!-- Collective Controller Configuration -->
+    <collectiveController>
+        <hostAuthInfo host="*" user="admin" password="admin" />
+    </collectiveController>
+
+    <!-- REST Connector for JMX -->
+    <restConnector>
+        <quickStartSecurity userName="admin" userPassword="admin" />
+    </restConnector>
+
+    <!-- Keystore Configuration -->
+    <keyStore id="defaultKeyStore" password="Liberty" />
+
+    <!-- SSL Configuration -->
+    <ssl id="defaultSSLConfig" keyStoreRef="defaultKeyStore" trustDefaultCerts="true" />
+
+    <!-- Logging -->
+    <logging traceSpecification="*=info:com.example.controller.*=all" 
+             maxFileSize="20" 
+             maxFiles="10" />
+
+</server>
+
+<!-- Made with Bob -->

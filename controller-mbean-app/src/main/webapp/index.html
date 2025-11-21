@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controller MBean Query Application</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background-color: #0f62fe;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0;
+        }
+        h2 {
+            color: #0f62fe;
+            border-bottom: 2px solid #0f62fe;
+            padding-bottom: 10px;
+        }
+        .endpoint {
+            background-color: #f4f4f4;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #0f62fe;
+            border-radius: 3px;
+        }
+        .method {
+            display: inline-block;
+            background-color: #0f62fe;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .path {
+            font-family: monospace;
+            color: #333;
+            font-size: 14px;
+        }
+        .description {
+            margin-top: 10px;
+            color: #666;
+        }
+        .example {
+            background-color: #e8e8e8;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .button {
+            background-color: #0f62fe;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+        }
+        .button:hover {
+            background-color: #0353e9;
+        }
+        .info-box {
+            background-color: #e5f6ff;
+            border-left: 4px solid #0f62fe;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Controller MBean Query Application</h1>
+        <p>Query Counter MBeans from Liberty Cluster Members</p>
+    </div>
+
+    <div class="container">
+        <h2>📋 Overview</h2>
+        <p>This application provides REST API endpoints to query Counter MBean values from cluster member servers through the Liberty Collective Controller.</p>
+        
+        <div class="info-box">
+            <strong>📌 Important:</strong> This application must be deployed on a Liberty Collective Controller server. 
+            The Counter MBean is provided by the <code>liberty-cluster-member-app</code> deployed on cluster member servers.
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔌 API Endpoints</h2>
+
+        <div class="endpoint">
+            <div>
+                <span class="method">GET</span>
+                <span class="path">/api/counters</span>
+            </div>
+            <div class="description">
+                Get counter values from all cluster members
+            </div>
+            <div class="example">
+                curl http://localhost:9080/controller-mbean-app/api/counters
+            </div>
+            <a href="/controller-mbean-app/api/counters" class="button" target="_blank">Try it</a>
+        </div>
+
+        <div class="endpoint">
+            <div>
+                <span class="method">GET</span>
+                <span class="path">/api/counters/{serverName}</span>
+            </div>
+            <div class="description">
+                Get counter value from a specific cluster member
+            </div>
+            <div class="example">
+                curl http://localhost:9080/controller-mbean-app/api/counters/member1
+            </div>
+            <a href="/controller-mbean-app/api/counters/member1" class="button" target="_blank">Try member1</a>
+            <a href="/controller-mbean-app/api/counters/member2" class="button" target="_blank">Try member2</a>
+        </div>
+
+        <div class="endpoint">
+            <div>
+                <span class="method">GET</span>
+                <span class="path">/api/counters/members</span>
+            </div>
+            <div class="description">
+                List all available cluster members
+            </div>
+            <div class="example">
+                curl http://localhost:9080/controller-mbean-app/api/counters/members
+            </div>
+            <a href="/controller-mbean-app/api/counters/members" class="button" target="_blank">Try it</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📊 Counter MBean Details</h2>
+        <p><strong>MBean Name:</strong> <code>com.example.liberty.member:type=Counter</code></p>
+        <p><strong>Attributes:</strong></p>
+        <ul>
+            <li><code>Counter</code> (long) - Current counter value</li>
+            <li><code>TotalRequests</code> (long) - Total number of requests</li>
+            <li><code>MemberName</code> (String) - Name of the cluster member</li>
+        </ul>
+    </div>
+
+    <div class="container">
+        <h2>🚀 Quick Start</h2>
+        <ol>
+            <li>Ensure the Liberty Collective Controller is running</li>
+            <li>Ensure cluster member servers are joined to the collective</li>
+            <li>Deploy <code>liberty-cluster-member-app</code> on member servers</li>
+            <li>Deploy this application on the controller</li>
+            <li>Access the API endpoints above</li>
+        </ol>
+    </div>
+
+    <div class="container">
+        <h2>🔧 Testing Workflow</h2>
+        <div class="example">
+# 1. Increment counters on member servers
+curl http://localhost:9081/member-app/api/counter/increment
+curl http://localhost:9082/member-app/api/counter/increment
+
+# 2. Query counters from controller
+curl http://localhost:9080/controller-mbean-app/api/counters | jq
+
+# 3. Query specific member
+curl http://localhost:9080/controller-mbean-app/api/counters/member1 | jq
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📚 Documentation</h2>
+        <p>For detailed documentation, see:</p>
+        <ul>
+            <li><code>README.md</code> - Project overview and setup</li>
+            <li><code>MBEAN-COUNTER-API-GUIDE.md</code> - Complete API documentation</li>
+        </ul>
+    </div>
+</body>
+</html>
