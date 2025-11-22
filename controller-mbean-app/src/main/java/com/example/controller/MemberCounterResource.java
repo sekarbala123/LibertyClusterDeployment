@@ -301,72 +301,56 @@ public class MemberCounterResource {
     
     /**
      * Query the Counter MBean from a specific member through the collective controller
+     * Uses RoutingContext to set the routing to the specific member server
      */
     private JsonObject queryMemberCounter(MBeanServer mbs, String serverName, String hostName) throws Exception {
         JsonObjectBuilder resultBuilder = Json.createObjectBuilder();
         resultBuilder.add("serverName", serverName);
         resultBuilder.add("hostName", hostName != null ? hostName : "unknown");
         
+        // Get the RoutingContext MBean
+        ObjectName routingContextMBean = new ObjectName("WebSphere:feature=collectiveController,type=RoutingContext,name=RoutingContext");
+        
         try {
-            // The Counter MBean is accessed through the collective controller's routing
-            // Try multiple patterns to find the Counter MBean
+            LOGGER.info("Setting routing context to server: " + serverName + " on host: " + hostName);
             
-            Set<ObjectName> counterMBeans = new java.util.HashSet<>();
+            // Set the routing context to the specific member server
+            // This tells the collective controller to route subsequent MBean calls to this member
+            mbs.invoke(routingContextMBean, "assignServerContext",
+                new Object[]{hostName, null, serverName},
+                new String[]{String.class.getName(), String.class.getName(), String.class.getName()});
             
-            // Pattern 1: Standard routing pattern
-            String pattern1 = String.format(
-                "WebSphere:feature=collectiveController,type=Runtime,name=%s,host=%s,server=%s,*",
-                hostName, hostName, serverName
-            );
+            LOGGER.info("Routing context set successfully");
             
-            // Pattern 2: Try with just server name
-            String pattern2 = String.format("*:server=%s,*", serverName);
+            // Now query for Counter MBean - it should be visible in the member's context
+            String counterMBeanName = "com.example.liberty.member:type=Counter";
+            ObjectName counterMBean = new ObjectName(counterMBeanName);
             
-            // Pattern 3: Try with domain and server
-            String pattern3 = String.format("com.example.liberty.member:*,server=%s,*", serverName);
+            LOGGER.info("Checking if Counter MBean exists: " + counterMBeanName);
             
-            // Pattern 4: Broad search for any Counter type
-            String pattern4 = "*:type=Counter,*";
-            
-            String[] patterns = {pattern1, pattern2, pattern3, pattern4};
-            
-            for (String pattern : patterns) {
-                try {
-                    LOGGER.info("Trying pattern: " + pattern);
-                    ObjectName query = new ObjectName(pattern);
-                    Set<ObjectName> found = mbs.queryNames(query, null);
-                    LOGGER.info("Found " + found.size() + " MBeans with pattern: " + pattern);
-                    
-                    for (ObjectName mbean : found) {
-                        String mbeanStr = mbean.toString();
-                        LOGGER.info("  - " + mbeanStr);
-                        
-                        // Check if this looks like our Counter MBean
-                        if (mbeanStr.contains("Counter") || mbeanStr.contains("com.example.liberty.member")) {
-                            // Verify it's for the right server
-                            if (mbeanStr.contains("server=" + serverName) || mbeanStr.contains(serverName)) {
-                                counterMBeans.add(mbean);
-                                LOGGER.info("    -> Matched Counter MBean for server " + serverName);
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    LOGGER.log(Level.FINE, "Pattern failed: " + pattern, e);
+            if (!mbs.isRegistered(counterMBean)) {
+                LOGGER.warning("Counter MBean not registered on member: " + serverName);
+                
+                // Try to find any Counter-related MBeans
+                ObjectName searchPattern = new ObjectName("*:type=Counter,*");
+                Set<ObjectName> found = mbs.queryNames(searchPattern, null);
+                LOGGER.info("Found " + found.size() + " Counter MBeans in member context");
+                
+                for (ObjectName mbean : found) {
+                    LOGGER.info("  - " + mbean.toString());
                 }
+                
+                if (found.isEmpty()) {
+                    resultBuilder.add("status", "mbean_not_found");
+                    resultBuilder.add("message", "Counter MBean not found on member. Ensure liberty-cluster-member-app is deployed and running on " + serverName);
+                    return resultBuilder.build();
+                }
+                
+                // Use the first one found
+                counterMBean = found.iterator().next();
             }
             
-            LOGGER.info("Total Counter MBeans found for " + serverName + ": " + counterMBeans.size());
-            
-            if (counterMBeans.isEmpty()) {
-                resultBuilder.add("status", "mbean_not_found");
-                resultBuilder.add("message", "Counter MBean not found on member. Ensure liberty-cluster-member-app is deployed and running.");
-                resultBuilder.add("searchPatterns", String.join(", ", patterns));
-                return resultBuilder.build();
-            }
-            
-            // Get the first counter MBean found
-            ObjectName counterMBean = counterMBeans.iterator().next();
-            LOGGER.info("Found Counter MBean: " + counterMBean.toString());
+            LOGGER.info("Querying Counter MBean: " + counterMBean.toString());
             
             // Get MBean attributes
             Long counter = (Long) mbs.getAttribute(counterMBean, "Counter");
@@ -384,6 +368,14 @@ public class MemberCounterResource {
             resultBuilder.add("status", "error");
             resultBuilder.add("message", e.getMessage());
             resultBuilder.add("errorType", e.getClass().getSimpleName());
+        } finally {
+            // Always unassign the routing context when done
+            try {
+                LOGGER.info("Unassigning routing context");
+                mbs.invoke(routingContextMBean, "unassignServerContext", null, null);
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error unassigning routing context", e);
+            }
         }
         
         resultBuilder.add("timestamp", System.currentTimeMillis());
