@@ -335,8 +335,12 @@ public class MemberCounterResource {
             
             LOGGER.info("Member REST endpoint: " + memberUrl);
             
+            // Dynamically discover the application context root
+            String appContext = getCounterApplicationContext(mbs, serverName, hostName);
+            LOGGER.info("Discovered application context: " + appContext);
+            
             // Make HTTP call to member's Counter REST endpoint
-            String counterEndpoint = memberUrl + "/liberty-cluster-member-app/api/counter";
+            String counterEndpoint = memberUrl + appContext + "/api/counter";
             LOGGER.info("Calling Counter endpoint: " + counterEndpoint);
             
             String jsonResponse = makeHttpGetRequest(counterEndpoint);
@@ -344,6 +348,7 @@ public class MemberCounterResource {
             if (jsonResponse == null) {
                 resultBuilder.add("status", "connection_failed");
                 resultBuilder.add("message", "Failed to connect to member REST endpoint: " + counterEndpoint);
+                resultBuilder.add("discoveredContext", appContext);
                 return resultBuilder.build();
             }
             
@@ -357,6 +362,7 @@ public class MemberCounterResource {
                 resultBuilder.add("totalRequests", counterData.getJsonNumber("totalRequests").longValue());
                 resultBuilder.add("status", "success");
                 resultBuilder.add("endpoint", counterEndpoint);
+                resultBuilder.add("discoveredContext", appContext);
             }
             
         } catch (Exception e) {
@@ -421,6 +427,87 @@ public class MemberCounterResource {
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Error getting member REST endpoint", e);
             return null;
+        }
+    }
+    
+    /**
+     * Dynamically discover the application context root for the Counter application
+     * Queries ApplicationMBean from collective controller to find deployed applications
+     */
+    private String getCounterApplicationContext(MBeanServer mbs, String serverName, String hostName) {
+        try {
+            // Query for ApplicationMBean on the member server
+            // Pattern: WebSphere:service=com.ibm.websphere.application.ApplicationMBean,name=<appName>
+            String pattern = "WebSphere:service=com.ibm.websphere.application.ApplicationMBean,name=*";
+            ObjectName query = new ObjectName(pattern);
+            Set<ObjectName> appMBeans = mbs.queryNames(query, null);
+            
+            LOGGER.info("Found " + appMBeans.size() + " ApplicationMBeans");
+            
+            // Look for applications that might contain the Counter MBean
+            for (ObjectName appMBean : appMBeans) {
+                try {
+                    String appName = appMBean.getKeyProperty("name");
+                    LOGGER.info("Checking application: " + appName);
+                    
+                    // Check if this application has the Counter MBean or contains "member" in name
+                    if (appName != null && (appName.contains("member") || appName.contains("cluster"))) {
+                        // Try to get context root from application MBean
+                        try {
+                            Object contextRoot = mbs.getAttribute(appMBean, "ContextRoot");
+                            if (contextRoot != null) {
+                                String context = contextRoot.toString();
+                                LOGGER.info("Found context root from ApplicationMBean: " + context);
+                                return context;
+                            }
+                        } catch (Exception e) {
+                            LOGGER.fine("ContextRoot attribute not available on ApplicationMBean");
+                        }
+                        
+                        // Alternative: construct context from app name
+                        // Liberty default: app name becomes context root
+                        String context = "/" + appName;
+                        LOGGER.info("Using application name as context: " + context);
+                        return context;
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.FINE, "Error checking application MBean", e);
+                }
+            }
+            
+            // Try WebModuleMBean which has context root information
+            pattern = "WebSphere:j2eeType=WebModule,name=*";
+            query = new ObjectName(pattern);
+            Set<ObjectName> webModules = mbs.queryNames(query, null);
+            
+            LOGGER.info("Found " + webModules.size() + " WebModule MBeans");
+            
+            for (ObjectName webModule : webModules) {
+                try {
+                    String moduleName = webModule.getKeyProperty("name");
+                    LOGGER.info("Checking web module: " + moduleName);
+                    
+                    if (moduleName != null && (moduleName.contains("member") || moduleName.contains("cluster"))) {
+                        // Get context root from WebModule
+                        Object contextRoot = mbs.getAttribute(webModule, "contextRoot");
+                        if (contextRoot != null) {
+                            String context = contextRoot.toString();
+                            LOGGER.info("Found context root from WebModule: " + context);
+                            return context;
+                        }
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.FINE, "Error checking WebModule MBean", e);
+                }
+            }
+            
+            // Fallback: use default context
+            LOGGER.warning("Could not determine application context dynamically, using default");
+            return "/liberty-cluster-member-app";
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error discovering application context", e);
+            return "/liberty-cluster-member-app";
         }
     }
     
