@@ -459,14 +459,31 @@ public class MemberCounterResource {
                 
                 if (cm != null) {
                     JsonObjectBuilder memberBuilder = Json.createObjectBuilder();
-                    memberBuilder.add("serverName", cm.getServerName());
+                    
+                    // Add non-null values only
+                    if (cm.getServerName() != null) {
+                        memberBuilder.add("serverName", cm.getServerName());
+                    }
                     memberBuilder.add("clusterName", clusterName);
-                    memberBuilder.add("host", cm.getHost());
-                    memberBuilder.add("hostName", cm.getHostName());
-                    memberBuilder.add("httpPort", cm.getHttpPort());
-                    memberBuilder.add("httpsPort", cm.getHttpsPort());
-                    memberBuilder.add("state", cm.getState());
-                    memberBuilder.add("userDir", cm.getUserDir());
+                    
+                    if (cm.getHost() != null) {
+                        memberBuilder.add("host", cm.getHost());
+                    }
+                    if (cm.getHostName() != null) {
+                        memberBuilder.add("hostName", cm.getHostName());
+                    }
+                    if (cm.getHttpPort() != null) {
+                        memberBuilder.add("httpPort", cm.getHttpPort());
+                    }
+                    if (cm.getHttpsPort() != null) {
+                        memberBuilder.add("httpsPort", cm.getHttpsPort());
+                    }
+                    if (cm.getState() != null) {
+                        memberBuilder.add("state", cm.getState());
+                    }
+                    if (cm.getUserDir() != null) {
+                        memberBuilder.add("userDir", cm.getUserDir());
+                    }
                     
                     membersArray.add(memberBuilder.build());
                 }
