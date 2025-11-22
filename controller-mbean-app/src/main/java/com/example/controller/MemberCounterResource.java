@@ -772,6 +772,253 @@ public class MemberCounterResource {
     }
     
     /**
+     * List all applications deployed on a specific member server
+     *
+     * @param serverName The name of the cluster member server
+     * @return JSON response with list of deployed applications
+     */
+    @GET
+    @Path("/members/{serverName}/applications")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response listMemberApplications(@PathParam("serverName") String serverName) {
+        LOGGER.info("Listing applications for member: " + serverName);
+        
+        try {
+            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+            
+            // Verify controller
+            if (!isCollectiveController(mbs)) {
+                return createErrorResponse(
+                    "This application must be deployed on a Liberty Collective Controller",
+                    Response.Status.INTERNAL_SERVER_ERROR
+                );
+            }
+            
+            // Find the specific member
+            Map<String, Object> member = findMemberByName(mbs, serverName);
+            
+            if (member == null) {
+                return createErrorResponse(
+                    "Member not found: " + serverName,
+                    Response.Status.NOT_FOUND
+                );
+            }
+            
+            String hostName = (String) member.get("hostName");
+            
+            // Query for deployed applications
+            JsonArrayBuilder applications = getDeployedApplications(mbs, serverName, hostName);
+            
+            JsonObject response = Json.createObjectBuilder()
+                .add("serverName", serverName)
+                .add("hostName", hostName != null ? hostName : "unknown")
+                .add("applicationCount", applications.build().size())
+                .add("applications", applications)
+                .add("timestamp", System.currentTimeMillis())
+                .build();
+            
+            return Response.ok(response).build();
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to list applications for member: " + serverName, e);
+            return createErrorResponse(
+                "Failed to list applications: " + e.getMessage(),
+                Response.Status.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    
+    /**
+     * List all applications deployed across all cluster members
+     *
+     * @return JSON response with applications from all members
+     */
+    @GET
+    @Path("/applications")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response listAllMemberApplications() {
+        LOGGER.info("Listing applications from all cluster members");
+        
+        try {
+            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+            
+            // Verify controller
+            if (!isCollectiveController(mbs)) {
+                return createErrorResponse(
+                    "This application must be deployed on a Liberty Collective Controller",
+                    Response.Status.INTERNAL_SERVER_ERROR
+                );
+            }
+            
+            // Get all cluster members
+            List<Map<String, Object>> members = getClusterMembers(mbs);
+            
+            if (members.isEmpty()) {
+                return createErrorResponse(
+                    "No cluster members found",
+                    Response.Status.NOT_FOUND
+                );
+            }
+            
+            JsonArrayBuilder membersArray = Json.createArrayBuilder();
+            int totalApps = 0;
+            
+            // Query applications from each member
+            for (Map<String, Object> member : members) {
+                String serverName = (String) member.get("serverName");
+                String hostName = (String) member.get("hostName");
+                
+                try {
+                    JsonArrayBuilder applications = getDeployedApplications(mbs, serverName, hostName);
+                    int appCount = applications.build().size();
+                    
+                    JsonObject memberData = Json.createObjectBuilder()
+                        .add("serverName", serverName)
+                        .add("hostName", hostName != null ? hostName : "unknown")
+                        .add("applicationCount", appCount)
+                        .add("applications", applications)
+                        .build();
+                    
+                    membersArray.add(memberData);
+                    totalApps += appCount;
+                    
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Failed to get applications from member: " + serverName, e);
+                    JsonObject errorData = Json.createObjectBuilder()
+                        .add("serverName", serverName)
+                        .add("hostName", hostName != null ? hostName : "unknown")
+                        .add("status", "error")
+                        .add("message", e.getMessage())
+                        .build();
+                    membersArray.add(errorData);
+                }
+            }
+            
+            JsonObject response = Json.createObjectBuilder()
+                .add("memberCount", members.size())
+                .add("totalApplications", totalApps)
+                .add("members", membersArray)
+                .add("timestamp", System.currentTimeMillis())
+                .build();
+            
+            return Response.ok(response).build();
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to list applications from all members", e);
+            return createErrorResponse(
+                "Failed to list applications: " + e.getMessage(),
+                Response.Status.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    
+    /**
+     * Get deployed applications from a member server by querying collective controller MBeans
+     */
+    private JsonArrayBuilder getDeployedApplications(MBeanServer mbs, String serverName, String hostName) throws Exception {
+        JsonArrayBuilder appsArray = Json.createArrayBuilder();
+        
+        try {
+            // Query for ApplicationMBean - these represent deployed applications
+            String pattern = "WebSphere:service=com.ibm.websphere.application.ApplicationMBean,name=*";
+            ObjectName query = new ObjectName(pattern);
+            Set<ObjectName> appMBeans = mbs.queryNames(query, null);
+            
+            LOGGER.info("Found " + appMBeans.size() + " ApplicationMBeans for server: " + serverName);
+            
+            for (ObjectName appMBean : appMBeans) {
+                try {
+                    String appName = appMBean.getKeyProperty("name");
+                    
+                    if (appName == null) {
+                        continue;
+                    }
+                    
+                    JsonObjectBuilder appBuilder = Json.createObjectBuilder();
+                    appBuilder.add("name", appName);
+                    
+                    // Try to get additional application details
+                    try {
+                        Object state = mbs.getAttribute(appMBean, "State");
+                        if (state != null) {
+                            appBuilder.add("state", state.toString());
+                        }
+                    } catch (Exception e) {
+                        LOGGER.fine("State attribute not available for app: " + appName);
+                    }
+                    
+                    try {
+                        Object contextRoot = mbs.getAttribute(appMBean, "ContextRoot");
+                        if (contextRoot != null) {
+                            appBuilder.add("contextRoot", contextRoot.toString());
+                        }
+                    } catch (Exception e) {
+                        LOGGER.fine("ContextRoot attribute not available for app: " + appName);
+                    }
+                    
+                    appsArray.add(appBuilder.build());
+                    
+                } catch (Exception e) {
+                    LOGGER.log(Level.FINE, "Error processing ApplicationMBean", e);
+                }
+            }
+            
+            // Also check WebModule MBeans for additional context information
+            pattern = "WebSphere:j2eeType=WebModule,name=*";
+            query = new ObjectName(pattern);
+            Set<ObjectName> webModules = mbs.queryNames(query, null);
+            
+            LOGGER.info("Found " + webModules.size() + " WebModule MBeans for server: " + serverName);
+            
+            // Create a map to track which apps we've already added
+            Map<String, Boolean> addedApps = new HashMap<>();
+            
+            for (ObjectName webModule : webModules) {
+                try {
+                    String moduleName = webModule.getKeyProperty("name");
+                    
+                    if (moduleName == null || addedApps.containsKey(moduleName)) {
+                        continue;
+                    }
+                    
+                    JsonObjectBuilder moduleBuilder = Json.createObjectBuilder();
+                    moduleBuilder.add("name", moduleName);
+                    moduleBuilder.add("type", "WebModule");
+                    
+                    try {
+                        Object contextRoot = mbs.getAttribute(webModule, "contextRoot");
+                        if (contextRoot != null) {
+                            moduleBuilder.add("contextRoot", contextRoot.toString());
+                        }
+                    } catch (Exception e) {
+                        LOGGER.fine("contextRoot attribute not available for module: " + moduleName);
+                    }
+                    
+                    try {
+                        Object path = mbs.getAttribute(webModule, "path");
+                        if (path != null) {
+                            moduleBuilder.add("path", path.toString());
+                        }
+                    } catch (Exception e) {
+                        LOGGER.fine("path attribute not available for module: " + moduleName);
+                    }
+                    
+                    addedApps.put(moduleName, true);
+                    
+                } catch (Exception e) {
+                    LOGGER.log(Level.FINE, "Error processing WebModule MBean", e);
+                }
+            }
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error querying deployed applications for member: " + serverName, e);
+            throw e;
+        }
+        
+        return appsArray;
+    }
+    
+    /**
      * Helper method to invoke MBean operations
      */
     private Object invokeOperation(MBeanServer mbs, ObjectName objName, String operationName, Object[] params, String[] signature) throws Exception {
