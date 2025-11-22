@@ -2,35 +2,28 @@ package com.example.controller;
 
 /**
  * Represents a Liberty Cluster Member parsed from ClusterManager MBean tuple
- * The tuple format from listMembers is: "host,hostName,httpPort,httpsPort,serverName,state,userDir"
+ * The actual tuple format from listMembers is: "hostname,userDir,serverName"
+ * Example: "cads-v9-rss-ft1.fyre.ibm.com,C:/wlp-m1/usr,m1"
  */
 public class LibertyClusterMember {
-    private String host;
     private String hostName;
-    private String httpPort;
-    private String httpsPort;
-    private String serverName;
-    private String state;
     private String userDir;
+    private String serverName;
     
     public LibertyClusterMember() {
     }
     
-    public LibertyClusterMember(String host, String hostName, String httpPort, String httpsPort, 
-                                String serverName, String state, String userDir) {
-        this.host = host;
+    public LibertyClusterMember(String hostName, String userDir, String serverName) {
         this.hostName = hostName;
-        this.httpPort = httpPort;
-        this.httpsPort = httpsPort;
-        this.serverName = serverName;
-        this.state = state;
         this.userDir = userDir;
+        this.serverName = serverName;
     }
     
     /**
      * Parse a cluster member tuple string returned by ClusterManager.listMembers()
-     * Format: "host,hostName,httpPort,httpsPort,serverName,state,userDir"
-     * 
+     * Actual Format: "hostname,userDir,serverName"
+     * Example: "cads-v9-rss-ft1.fyre.ibm.com,C:/wlp-m1/usr,m1"
+     *
      * @param tuple The tuple string to parse
      * @return LibertyClusterMember object
      */
@@ -40,77 +33,29 @@ public class LibertyClusterMember {
         }
         
         String[] parts = tuple.split(",");
-        if (parts.length < 7) {
-            // Handle incomplete tuples
+        if (parts.length < 3) {
+            // Handle incomplete tuples - set what we have
             LibertyClusterMember member = new LibertyClusterMember();
-            if (parts.length > 0) member.setHost(parts[0]);
-            if (parts.length > 1) member.setHostName(parts[1]);
-            if (parts.length > 2) member.setHttpPort(parts[2]);
-            if (parts.length > 3) member.setHttpsPort(parts[3]);
-            if (parts.length > 4) member.setServerName(parts[4]);
-            if (parts.length > 5) member.setState(parts[5]);
-            if (parts.length > 6) member.setUserDir(parts[6]);
+            if (parts.length > 0) member.setHostName(parts[0].trim());
+            if (parts.length > 1) member.setUserDir(parts[1].trim());
+            if (parts.length > 2) member.setServerName(parts[2].trim());
             return member;
         }
         
         return new LibertyClusterMember(
-            parts[0].trim(),  // host
-            parts[1].trim(),  // hostName
-            parts[2].trim(),  // httpPort
-            parts[3].trim(),  // httpsPort
-            parts[4].trim(),  // serverName
-            parts[5].trim(),  // state
-            parts[6].trim()   // userDir
+            parts[0].trim(),  // hostName
+            parts[1].trim(),  // userDir
+            parts[2].trim()   // serverName
         );
     }
     
     // Getters and Setters
-    public String getHost() {
-        return host;
-    }
-    
-    public void setHost(String host) {
-        this.host = host;
-    }
-    
     public String getHostName() {
         return hostName;
     }
     
     public void setHostName(String hostName) {
         this.hostName = hostName;
-    }
-    
-    public String getHttpPort() {
-        return httpPort;
-    }
-    
-    public void setHttpPort(String httpPort) {
-        this.httpPort = httpPort;
-    }
-    
-    public String getHttpsPort() {
-        return httpsPort;
-    }
-    
-    public void setHttpsPort(String httpsPort) {
-        this.httpsPort = httpsPort;
-    }
-    
-    public String getServerName() {
-        return serverName;
-    }
-    
-    public void setServerName(String serverName) {
-        this.serverName = serverName;
-    }
-    
-    public String getState() {
-        return state;
-    }
-    
-    public void setState(String state) {
-        this.state = state;
     }
     
     public String getUserDir() {
@@ -121,16 +66,20 @@ public class LibertyClusterMember {
         this.userDir = userDir;
     }
     
+    public String getServerName() {
+        return serverName;
+    }
+    
+    public void setServerName(String serverName) {
+        this.serverName = serverName;
+    }
+    
     @Override
     public String toString() {
         return "LibertyClusterMember{" +
-                "host='" + host + '\'' +
-                ", hostName='" + hostName + '\'' +
-                ", httpPort='" + httpPort + '\'' +
-                ", httpsPort='" + httpsPort + '\'' +
-                ", serverName='" + serverName + '\'' +
-                ", state='" + state + '\'' +
+                "hostName='" + hostName + '\'' +
                 ", userDir='" + userDir + '\'' +
+                ", serverName='" + serverName + '\'' +
                 '}';
     }
 }

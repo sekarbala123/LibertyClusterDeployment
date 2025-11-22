@@ -263,10 +263,6 @@ public class MemberCounterResource {
                                 memberInfo.put("serverName", cm.getServerName());
                                 memberInfo.put("clusterName", clusterName);
                                 memberInfo.put("hostName", cm.getHostName());
-                                memberInfo.put("host", cm.getHost());
-                                memberInfo.put("httpPort", cm.getHttpPort());
-                                memberInfo.put("httpsPort", cm.getHttpsPort());
-                                memberInfo.put("state", cm.getState());
                                 memberInfo.put("userDir", cm.getUserDir());
                                 
                                 allMembers.add(memberInfo);
@@ -466,20 +462,8 @@ public class MemberCounterResource {
                     }
                     memberBuilder.add("clusterName", clusterName);
                     
-                    if (cm.getHost() != null) {
-                        memberBuilder.add("host", cm.getHost());
-                    }
                     if (cm.getHostName() != null) {
                         memberBuilder.add("hostName", cm.getHostName());
-                    }
-                    if (cm.getHttpPort() != null) {
-                        memberBuilder.add("httpPort", cm.getHttpPort());
-                    }
-                    if (cm.getHttpsPort() != null) {
-                        memberBuilder.add("httpsPort", cm.getHttpsPort());
-                    }
-                    if (cm.getState() != null) {
-                        memberBuilder.add("state", cm.getState());
                     }
                     if (cm.getUserDir() != null) {
                         memberBuilder.add("userDir", cm.getUserDir());
