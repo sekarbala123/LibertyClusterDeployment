@@ -309,19 +309,32 @@ public class MemberCounterResource {
         
         try {
             // The Counter MBean is accessed through the collective controller's routing
-            // Pattern: WebSphere:feature=collectiveController,type=Runtime,name=<host>,host=<host>,server=<server>,<original-mbean-properties>
+            // Pattern: WebSphere:feature=collectiveController,type=Runtime,name=<host>,host=<host>,server=<server>,*
+            // The original MBean properties are appended after the routing information
             
-            // Try to find the Counter MBean for this member
+            // Try to find the Counter MBean for this member using wildcard query
             String mbeanPattern = String.format(
-                "WebSphere:feature=collectiveController,type=Runtime,name=%s,host=%s,server=%s,type=Counter,*",
+                "WebSphere:feature=collectiveController,type=Runtime,name=%s,host=%s,server=%s,*",
                 hostName, hostName, serverName
             );
             
             ObjectName counterQuery = new ObjectName(mbeanPattern);
-            Set<ObjectName> counterMBeans = mbs.queryNames(counterQuery, null);
+            Set<ObjectName> allMBeans = mbs.queryNames(counterQuery, null);
             
-            LOGGER.info("Searching for Counter MBean with pattern: " + mbeanPattern);
-            LOGGER.info("Found " + counterMBeans.size() + " Counter MBeans for server: " + serverName);
+            LOGGER.info("Searching for MBeans with pattern: " + mbeanPattern);
+            LOGGER.info("Found " + allMBeans.size() + " MBeans for server: " + serverName);
+            
+            // Filter for Counter MBeans
+            Set<ObjectName> counterMBeans = new java.util.HashSet<>();
+            for (ObjectName mbean : allMBeans) {
+                String mbeanStr = mbean.toString();
+                if (mbeanStr.contains("type=Counter") || mbeanStr.contains("com.example.liberty.member")) {
+                    counterMBeans.add(mbean);
+                    LOGGER.info("Found Counter MBean: " + mbeanStr);
+                }
+            }
+            
+            LOGGER.info("Found " + counterMBeans.size() + " Counter MBeans after filtering");
             
             if (counterMBeans.isEmpty()) {
                 resultBuilder.add("status", "mbean_not_found");
