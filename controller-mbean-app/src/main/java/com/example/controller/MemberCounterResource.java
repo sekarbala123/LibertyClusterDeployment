@@ -309,37 +309,58 @@ public class MemberCounterResource {
         
         try {
             // The Counter MBean is accessed through the collective controller's routing
-            // Pattern: WebSphere:feature=collectiveController,type=Runtime,name=<host>,host=<host>,server=<server>,*
-            // The original MBean properties are appended after the routing information
+            // Try multiple patterns to find the Counter MBean
             
-            // Try to find the Counter MBean for this member using wildcard query
-            String mbeanPattern = String.format(
+            Set<ObjectName> counterMBeans = new java.util.HashSet<>();
+            
+            // Pattern 1: Standard routing pattern
+            String pattern1 = String.format(
                 "WebSphere:feature=collectiveController,type=Runtime,name=%s,host=%s,server=%s,*",
                 hostName, hostName, serverName
             );
             
-            ObjectName counterQuery = new ObjectName(mbeanPattern);
-            Set<ObjectName> allMBeans = mbs.queryNames(counterQuery, null);
+            // Pattern 2: Try with just server name
+            String pattern2 = String.format("*:server=%s,*", serverName);
             
-            LOGGER.info("Searching for MBeans with pattern: " + mbeanPattern);
-            LOGGER.info("Found " + allMBeans.size() + " MBeans for server: " + serverName);
+            // Pattern 3: Try with domain and server
+            String pattern3 = String.format("com.example.liberty.member:*,server=%s,*", serverName);
             
-            // Filter for Counter MBeans
-            Set<ObjectName> counterMBeans = new java.util.HashSet<>();
-            for (ObjectName mbean : allMBeans) {
-                String mbeanStr = mbean.toString();
-                if (mbeanStr.contains("type=Counter") || mbeanStr.contains("com.example.liberty.member")) {
-                    counterMBeans.add(mbean);
-                    LOGGER.info("Found Counter MBean: " + mbeanStr);
+            // Pattern 4: Broad search for any Counter type
+            String pattern4 = "*:type=Counter,*";
+            
+            String[] patterns = {pattern1, pattern2, pattern3, pattern4};
+            
+            for (String pattern : patterns) {
+                try {
+                    LOGGER.info("Trying pattern: " + pattern);
+                    ObjectName query = new ObjectName(pattern);
+                    Set<ObjectName> found = mbs.queryNames(query, null);
+                    LOGGER.info("Found " + found.size() + " MBeans with pattern: " + pattern);
+                    
+                    for (ObjectName mbean : found) {
+                        String mbeanStr = mbean.toString();
+                        LOGGER.info("  - " + mbeanStr);
+                        
+                        // Check if this looks like our Counter MBean
+                        if (mbeanStr.contains("Counter") || mbeanStr.contains("com.example.liberty.member")) {
+                            // Verify it's for the right server
+                            if (mbeanStr.contains("server=" + serverName) || mbeanStr.contains(serverName)) {
+                                counterMBeans.add(mbean);
+                                LOGGER.info("    -> Matched Counter MBean for server " + serverName);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.FINE, "Pattern failed: " + pattern, e);
                 }
             }
             
-            LOGGER.info("Found " + counterMBeans.size() + " Counter MBeans after filtering");
+            LOGGER.info("Total Counter MBeans found for " + serverName + ": " + counterMBeans.size());
             
             if (counterMBeans.isEmpty()) {
                 resultBuilder.add("status", "mbean_not_found");
                 resultBuilder.add("message", "Counter MBean not found on member. Ensure liberty-cluster-member-app is deployed and running.");
-                resultBuilder.add("searchPattern", mbeanPattern);
+                resultBuilder.add("searchPatterns", String.join(", ", patterns));
                 return resultBuilder.build();
             }
             
