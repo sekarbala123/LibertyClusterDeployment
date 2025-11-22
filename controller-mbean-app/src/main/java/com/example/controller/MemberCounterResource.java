@@ -17,6 +17,7 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -249,43 +250,26 @@ public class MemberCounterResource {
             // Get members from each cluster
             for (String clusterName : clusterNames) {
                 try {
-                    Collection<String> memberNames = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listMembers",
+                    Collection<String> clusterMemberTuples = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listMembers",
                         new Object[] {clusterName}, new String[] {String.class.getName()});
                     
-                    if (memberNames != null) {
-                        for (String memberName : memberNames) {
-                            try {
-                                ObjectName serverMBean = new ObjectName("WebSphere:feature=collectiveController,type=Server,name=" + memberName);
+                    if (clusterMemberTuples != null) {
+                        for (Iterator<String> iter = clusterMemberTuples.iterator(); iter.hasNext();) {
+                            String clusterMemberTuple = iter.next();
+                            LibertyClusterMember cm = LibertyClusterMember.parseClusterMemberTuple(clusterMemberTuple);
+                            
+                            if (cm != null) {
+                                Map<String, Object> memberInfo = new HashMap<>();
+                                memberInfo.put("serverName", cm.getServerName());
+                                memberInfo.put("clusterName", clusterName);
+                                memberInfo.put("hostName", cm.getHostName());
+                                memberInfo.put("host", cm.getHost());
+                                memberInfo.put("httpPort", cm.getHttpPort());
+                                memberInfo.put("httpsPort", cm.getHttpsPort());
+                                memberInfo.put("state", cm.getState());
+                                memberInfo.put("userDir", cm.getUserDir());
                                 
-                                if (mbs.isRegistered(serverMBean)) {
-                                    Map<String, Object> memberInfo = new HashMap<>();
-                                    memberInfo.put("serverName", memberName);
-                                    memberInfo.put("clusterName", clusterName);
-                                    
-                                    // Get hostname
-                                    try {
-                                        Object hostNameAttr = mbs.getAttribute(serverMBean, "HostName");
-                                        if (hostNameAttr != null) {
-                                            memberInfo.put("hostName", hostNameAttr.toString());
-                                        }
-                                    } catch (Exception e) {
-                                        LOGGER.fine("Could not get HostName for " + memberName);
-                                    }
-                                    
-                                    // Get server state
-                                    try {
-                                        Object stateAttr = mbs.getAttribute(serverMBean, "State");
-                                        if (stateAttr != null) {
-                                            memberInfo.put("state", stateAttr.toString());
-                                        }
-                                    } catch (Exception e) {
-                                        LOGGER.fine("Could not get State for " + memberName);
-                                    }
-                                    
-                                    allMembers.add(memberInfo);
-                                }
-                            } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Error processing member: " + memberName, e);
+                                allMembers.add(memberInfo);
                             }
                         }
                     }
@@ -450,10 +434,10 @@ public class MemberCounterResource {
             
             // Use ClusterManager MBean to get cluster members
             ObjectName clusterMgrMBean = new ObjectName("WebSphere:feature=collectiveController,type=ClusterManager,name=ClusterManager");
-            Collection<String> memberNames = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listMembers",
+            Collection<String> clusterMemberTuples = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listMembers",
                 new Object[] {clusterName}, new String[] {String.class.getName()});
             
-            if (memberNames == null || memberNames.isEmpty()) {
+            if (clusterMemberTuples == null || clusterMemberTuples.isEmpty()) {
                 JsonObject response = Json.createObjectBuilder()
                     .add("clusterName", clusterName)
                     .add("memberCount", 0)
@@ -464,80 +448,33 @@ public class MemberCounterResource {
                 return Response.status(Response.Status.NOT_FOUND).entity(response).build();
             }
             
-            LOGGER.info("Found " + memberNames.size() + " members in cluster: " + clusterName);
+            LOGGER.info("Found " + clusterMemberTuples.size() + " members in cluster: " + clusterName);
             
             JsonArrayBuilder membersArray = Json.createArrayBuilder();
             
-            // Get detailed information for each member
-            for (String memberName : memberNames) {
-                try {
-                    ObjectName serverMBean = new ObjectName("WebSphere:feature=collectiveController,type=Server,name=" + memberName);
+            // Parse each member tuple
+            for (Iterator<String> iter = clusterMemberTuples.iterator(); iter.hasNext();) {
+                String clusterMemberTuple = iter.next();
+                LibertyClusterMember cm = LibertyClusterMember.parseClusterMemberTuple(clusterMemberTuple);
+                
+                if (cm != null) {
+                    JsonObjectBuilder memberBuilder = Json.createObjectBuilder();
+                    memberBuilder.add("serverName", cm.getServerName());
+                    memberBuilder.add("clusterName", clusterName);
+                    memberBuilder.add("host", cm.getHost());
+                    memberBuilder.add("hostName", cm.getHostName());
+                    memberBuilder.add("httpPort", cm.getHttpPort());
+                    memberBuilder.add("httpsPort", cm.getHttpsPort());
+                    memberBuilder.add("state", cm.getState());
+                    memberBuilder.add("userDir", cm.getUserDir());
                     
-                    if (mbs.isRegistered(serverMBean)) {
-                        JsonObjectBuilder memberBuilder = Json.createObjectBuilder();
-                        memberBuilder.add("serverName", memberName);
-                        memberBuilder.add("clusterName", clusterName);
-                        
-                        // Get host
-                        try {
-                            Object host = mbs.getAttribute(serverMBean, "Host");
-                            if (host != null) {
-                                memberBuilder.add("host", host.toString());
-                            }
-                        } catch (Exception e) {
-                            LOGGER.fine("Could not get Host for " + memberName);
-                        }
-                        
-                        // Get hostname
-                        try {
-                            Object hostName = mbs.getAttribute(serverMBean, "HostName");
-                            if (hostName != null) {
-                                memberBuilder.add("hostName", hostName.toString());
-                            }
-                        } catch (Exception e) {
-                            LOGGER.fine("Could not get HostName for " + memberName);
-                        }
-                        
-                        // Get HTTPS port
-                        try {
-                            Object httpsPort = mbs.getAttribute(serverMBean, "HttpsPort");
-                            if (httpsPort != null) {
-                                memberBuilder.add("httpsPort", httpsPort.toString());
-                            }
-                        } catch (Exception e) {
-                            LOGGER.fine("Could not get HttpsPort for " + memberName);
-                        }
-                        
-                        // Get HTTP port
-                        try {
-                            Object httpPort = mbs.getAttribute(serverMBean, "HttpPort");
-                            if (httpPort != null) {
-                                memberBuilder.add("httpPort", httpPort.toString());
-                            }
-                        } catch (Exception e) {
-                            LOGGER.fine("Could not get HttpPort for " + memberName);
-                        }
-                        
-                        // Get state
-                        try {
-                            Object state = mbs.getAttribute(serverMBean, "State");
-                            if (state != null) {
-                                memberBuilder.add("state", state.toString());
-                            }
-                        } catch (Exception e) {
-                            LOGGER.fine("Could not get State for " + memberName);
-                        }
-                        
-                        membersArray.add(memberBuilder.build());
-                    }
-                } catch (Exception e) {
-                    LOGGER.log(Level.WARNING, "Error processing member: " + memberName, e);
+                    membersArray.add(memberBuilder.build());
                 }
             }
             
             JsonObject response = Json.createObjectBuilder()
                 .add("clusterName", clusterName)
-                .add("memberCount", memberNames.size())
+                .add("memberCount", clusterMemberTuples.size())
                 .add("members", membersArray)
                 .add("timestamp", System.currentTimeMillis())
                 .build();
