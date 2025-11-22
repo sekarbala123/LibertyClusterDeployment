@@ -4,8 +4,15 @@ import javax.json.Json;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
+import javax.json.JsonReader;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -13,7 +20,13 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.lang.management.ManagementFactory;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -300,86 +313,198 @@ public class MemberCounterResource {
     }
     
     /**
-     * Query the Counter MBean from a specific member through the collective controller
-     * Uses RoutingContext to set the routing to the specific member server
+     * Query the Counter from a specific member using REST API
+     * Gets endpoint information from collective controller MBeans and makes HTTP call to member
      */
     private JsonObject queryMemberCounter(MBeanServer mbs, String serverName, String hostName) throws Exception {
         JsonObjectBuilder resultBuilder = Json.createObjectBuilder();
         resultBuilder.add("serverName", serverName);
         resultBuilder.add("hostName", hostName != null ? hostName : "unknown");
         
-        // Get the RoutingContext MBean
-        ObjectName routingContextMBean = new ObjectName("WebSphere:feature=collectiveController,type=RoutingContext,name=RoutingContext");
-        
         try {
-            LOGGER.info("Setting routing context to server: " + serverName + " on host: " + hostName);
+            LOGGER.info("Getting endpoint information for server: " + serverName);
             
-            // Set the routing context to the specific member server
-            // This tells the collective controller to route subsequent MBean calls to this member
-            mbs.invoke(routingContextMBean, "assignServerContext",
-                new Object[]{hostName, null, serverName},
-                new String[]{String.class.getName(), String.class.getName(), String.class.getName()});
+            // Get member endpoint information from ApplicationRoutingInfoMBean
+            String memberUrl = getMemberRestEndpoint(mbs, serverName, hostName);
             
-            LOGGER.info("Routing context set successfully");
-            
-            // Now query for Counter MBean - it should be visible in the member's context
-            String counterMBeanName = "com.example.liberty.member:type=Counter";
-            ObjectName counterMBean = new ObjectName(counterMBeanName);
-            
-            LOGGER.info("Checking if Counter MBean exists: " + counterMBeanName);
-            
-            if (!mbs.isRegistered(counterMBean)) {
-                LOGGER.warning("Counter MBean not registered on member: " + serverName);
-                
-                // Try to find any Counter-related MBeans
-                ObjectName searchPattern = new ObjectName("*:type=Counter,*");
-                Set<ObjectName> found = mbs.queryNames(searchPattern, null);
-                LOGGER.info("Found " + found.size() + " Counter MBeans in member context");
-                
-                for (ObjectName mbean : found) {
-                    LOGGER.info("  - " + mbean.toString());
-                }
-                
-                if (found.isEmpty()) {
-                    resultBuilder.add("status", "mbean_not_found");
-                    resultBuilder.add("message", "Counter MBean not found on member. Ensure liberty-cluster-member-app is deployed and running on " + serverName);
-                    return resultBuilder.build();
-                }
-                
-                // Use the first one found
-                counterMBean = found.iterator().next();
+            if (memberUrl == null) {
+                resultBuilder.add("status", "endpoint_not_found");
+                resultBuilder.add("message", "Could not determine REST endpoint for member: " + serverName);
+                return resultBuilder.build();
             }
             
-            LOGGER.info("Querying Counter MBean: " + counterMBean.toString());
+            LOGGER.info("Member REST endpoint: " + memberUrl);
             
-            // Get MBean attributes
-            Long counter = (Long) mbs.getAttribute(counterMBean, "Counter");
-            Long totalRequests = (Long) mbs.getAttribute(counterMBean, "TotalRequests");
-            String memberName = (String) mbs.getAttribute(counterMBean, "MemberName");
+            // Make HTTP call to member's Counter REST endpoint
+            String counterEndpoint = memberUrl + "/liberty-cluster-member-app/api/counter";
+            LOGGER.info("Calling Counter endpoint: " + counterEndpoint);
             
-            resultBuilder.add("memberName", memberName);
-            resultBuilder.add("counter", counter);
-            resultBuilder.add("totalRequests", totalRequests);
-            resultBuilder.add("status", "success");
-            resultBuilder.add("mbeanObjectName", counterMBean.toString());
+            String jsonResponse = makeHttpGetRequest(counterEndpoint);
+            
+            if (jsonResponse == null) {
+                resultBuilder.add("status", "connection_failed");
+                resultBuilder.add("message", "Failed to connect to member REST endpoint: " + counterEndpoint);
+                return resultBuilder.build();
+            }
+            
+            // Parse the JSON response from member
+            try (JsonReader reader = Json.createReader(new StringReader(jsonResponse))) {
+                JsonObject counterData = reader.readObject();
+                
+                // Extract counter information
+                resultBuilder.add("memberName", counterData.getString("memberName", serverName));
+                resultBuilder.add("counter", counterData.getJsonNumber("counter").longValue());
+                resultBuilder.add("totalRequests", counterData.getJsonNumber("totalRequests").longValue());
+                resultBuilder.add("status", "success");
+                resultBuilder.add("endpoint", counterEndpoint);
+            }
             
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Error querying counter MBean for " + serverName, e);
+            LOGGER.log(Level.WARNING, "Error querying counter from member: " + serverName, e);
             resultBuilder.add("status", "error");
             resultBuilder.add("message", e.getMessage());
             resultBuilder.add("errorType", e.getClass().getSimpleName());
-        } finally {
-            // Always unassign the routing context when done
-            try {
-                LOGGER.info("Unassigning routing context");
-                mbs.invoke(routingContextMBean, "unassignServerContext", null, null);
-            } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Error unassigning routing context", e);
-            }
         }
         
         resultBuilder.add("timestamp", System.currentTimeMillis());
         return resultBuilder.build();
+    }
+    
+    /**
+     * Get the REST endpoint URL for a member server by querying collective controller MBeans
+     */
+    private String getMemberRestEndpoint(MBeanServer mbs, String serverName, String hostName) {
+        try {
+            // Query for ApplicationRoutingInfoMBean for the member
+            String pattern = String.format("WebSphere:feature=collectiveMember,type=ApplicationRoutingInfoMBean,name=*");
+            ObjectName query = new ObjectName(pattern);
+            Set<ObjectName> routingMBeans = mbs.queryNames(query, null);
+            
+            LOGGER.info("Found " + routingMBeans.size() + " ApplicationRoutingInfoMBeans");
+            
+            // Try to get endpoint from EndpointRoutingInfo MBean
+            ObjectName endpointMBean = new ObjectName("WebSphere:feature=collectiveMember,type=EndpointRoutingInfo,name=EndpointRoutingInfo");
+            
+            if (mbs.isRegistered(endpointMBean)) {
+                try {
+                    // Get HTTPS port - try different attribute names
+                    Object httpsPort = null;
+                    try {
+                        httpsPort = mbs.getAttribute(endpointMBean, "HttpsPort");
+                    } catch (Exception e) {
+                        LOGGER.fine("HttpsPort attribute not found, trying alternatives");
+                    }
+                    
+                    if (httpsPort == null) {
+                        try {
+                            httpsPort = mbs.getAttribute(endpointMBean, "DefaultHttpsPort");
+                        } catch (Exception e) {
+                            LOGGER.fine("DefaultHttpsPort attribute not found");
+                        }
+                    }
+                    
+                    if (httpsPort != null) {
+                        String url = "https://" + hostName + ":" + httpsPort;
+                        LOGGER.info("Constructed member URL from EndpointRoutingInfo: " + url);
+                        return url;
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.FINE, "Error getting endpoint from EndpointRoutingInfo", e);
+                }
+            }
+            
+            // Fallback: use default HTTPS port
+            String defaultUrl = "https://" + hostName + ":9443";
+            LOGGER.info("Using default HTTPS port, constructed URL: " + defaultUrl);
+            return defaultUrl;
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error getting member REST endpoint", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Make HTTP GET request to the specified URL
+     * Handles both HTTP and HTTPS with SSL trust
+     */
+    private String makeHttpGetRequest(String urlString) {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL(urlString);
+            
+            // Setup SSL trust for HTTPS
+            if (urlString.startsWith("https://")) {
+                setupSSLTrust();
+            }
+            
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            conn.setRequestProperty("Accept", "application/json");
+            
+            int responseCode = conn.getResponseCode();
+            LOGGER.info("HTTP Response Code: " + responseCode);
+            
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+                
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+                
+                return response.toString();
+            } else {
+                LOGGER.warning("HTTP request failed with response code: " + responseCode);
+                return null;
+            }
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error making HTTP request to: " + urlString, e);
+            return null;
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+    }
+    
+    /**
+     * Setup SSL trust to accept all certificates (for development/testing)
+     * In production, use proper certificate validation
+     */
+    private void setupSSLTrust() {
+        try {
+            TrustManager[] trustAllCerts = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return null;
+                    }
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                    }
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                    }
+                }
+            };
+            
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+            
+            HostnameVerifier allHostsValid = new HostnameVerifier() {
+                public boolean verify(String hostname, SSLSession session) {
+                    return true;
+                }
+            };
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error setting up SSL trust", e);
+        }
     }
     
     /**
