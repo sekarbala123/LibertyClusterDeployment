@@ -9,11 +9,13 @@ import javax.management.ObjectName;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -227,62 +229,79 @@ public class MemberCounterResource {
     }
     
     /**
-     * Get all cluster members from the collective
+     * Get all cluster members from the collective using ClusterManager MBean
      */
     private List<Map<String, Object>> getClusterMembers(MBeanServer mbs) throws Exception {
-        List<Map<String, Object>> members = new ArrayList<>();
+        List<Map<String, Object>> allMembers = new ArrayList<>();
         
-        // Query for all server MBeans in the collective
-        ObjectName serverQuery = new ObjectName("WebSphere:feature=collectiveController,type=Server,*");
-        Set<ObjectName> serverMBeans = mbs.queryNames(serverQuery, null);
-        
-        LOGGER.info("Found " + serverMBeans.size() + " server MBeans in the collective");
-        
-        for (ObjectName serverMBean : serverMBeans) {
-            try {
-                Map<String, Object> memberInfo = new HashMap<>();
-                
-                String serverName = serverMBean.getKeyProperty("name");
-                memberInfo.put("serverName", serverName);
-                
-                // Get host name
-                try {
-                    Object hostNameAttr = mbs.getAttribute(serverMBean, "HostName");
-                    if (hostNameAttr != null) {
-                        memberInfo.put("hostName", hostNameAttr.toString());
-                    }
-                } catch (Exception e) {
-                    LOGGER.fine("Could not get HostName for " + serverName);
-                }
-                
-                // Get server state
-                try {
-                    Object stateAttr = mbs.getAttribute(serverMBean, "State");
-                    if (stateAttr != null) {
-                        memberInfo.put("state", stateAttr.toString());
-                    }
-                } catch (Exception e) {
-                    LOGGER.fine("Could not get State for " + serverName);
-                }
-                
-                // Get cluster name if available
-                try {
-                    Object clusterAttr = mbs.getAttribute(serverMBean, "Cluster");
-                    if (clusterAttr != null) {
-                        memberInfo.put("clusterName", clusterAttr.toString());
-                    }
-                } catch (Exception e) {
-                    // No cluster attribute
-                }
-                
-                members.add(memberInfo);
-                
-            } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Error processing server MBean " + serverMBean, e);
+        try {
+            // Get all clusters first
+            ObjectName clusterMgrMBean = new ObjectName("WebSphere:feature=collectiveController,type=ClusterManager,name=ClusterManager");
+            Collection<String> clusterNames = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listClusterNames", null, null);
+            
+            if (clusterNames == null || clusterNames.isEmpty()) {
+                LOGGER.info("No clusters found in the collective");
+                return allMembers;
             }
+            
+            LOGGER.info("Found " + clusterNames.size() + " clusters");
+            
+            // Get members from each cluster
+            for (String clusterName : clusterNames) {
+                try {
+                    Collection<String> memberNames = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listMembers",
+                        new Object[] {clusterName}, new String[] {String.class.getName()});
+                    
+                    if (memberNames != null) {
+                        for (String memberName : memberNames) {
+                            try {
+                                ObjectName serverMBean = new ObjectName("WebSphere:feature=collectiveController,type=Server,name=" + memberName);
+                                
+                                if (mbs.isRegistered(serverMBean)) {
+                                    Map<String, Object> memberInfo = new HashMap<>();
+                                    memberInfo.put("serverName", memberName);
+                                    memberInfo.put("clusterName", clusterName);
+                                    
+                                    // Get hostname
+                                    try {
+                                        Object hostNameAttr = mbs.getAttribute(serverMBean, "HostName");
+                                        if (hostNameAttr != null) {
+                                            memberInfo.put("hostName", hostNameAttr.toString());
+                                        }
+                                    } catch (Exception e) {
+                                        LOGGER.fine("Could not get HostName for " + memberName);
+                                    }
+                                    
+                                    // Get server state
+                                    try {
+                                        Object stateAttr = mbs.getAttribute(serverMBean, "State");
+                                        if (stateAttr != null) {
+                                            memberInfo.put("state", stateAttr.toString());
+                                        }
+                                    } catch (Exception e) {
+                                        LOGGER.fine("Could not get State for " + memberName);
+                                    }
+                                    
+                                    allMembers.add(memberInfo);
+                                }
+                            } catch (Exception e) {
+                                LOGGER.log(Level.WARNING, "Error processing member: " + memberName, e);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Error getting members for cluster: " + clusterName, e);
+                }
+            }
+            
+            LOGGER.info("Found total " + allMembers.size() + " members across all clusters");
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error getting cluster members", e);
+            throw e;
         }
         
-        return members;
+        return allMembers;
     }
     
     /**
@@ -355,6 +374,190 @@ public class MemberCounterResource {
         
         resultBuilder.add("timestamp", System.currentTimeMillis());
         return resultBuilder.build();
+    }
+    
+    /**
+     * List all clusters using ClusterManager MBean
+     */
+    @GET
+    @Path("/clusters")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response listClusters() {
+        LOGGER.info("Listing all clusters");
+        
+        try {
+            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+            
+            if (!isCollectiveController(mbs)) {
+                return createErrorResponse(
+                    "This application must be deployed on a Liberty Collective Controller",
+                    Response.Status.INTERNAL_SERVER_ERROR
+                );
+            }
+            
+            ObjectName clusterMgrMBean = new ObjectName("WebSphere:feature=collectiveController,type=ClusterManager,name=ClusterManager");
+            Collection<String> clusterNames = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listClusterNames", null, null);
+            
+            JsonArrayBuilder clustersArray = Json.createArrayBuilder();
+            if (clusterNames != null) {
+                for (String clusterName : clusterNames) {
+                    clustersArray.add(clusterName);
+                }
+            }
+            
+            JsonObject response = Json.createObjectBuilder()
+                .add("clusterCount", clusterNames != null ? clusterNames.size() : 0)
+                .add("clusters", clustersArray)
+                .add("timestamp", System.currentTimeMillis())
+                .build();
+            
+            return Response.ok(response).build();
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to list clusters", e);
+            return createErrorResponse(
+                "Failed to list clusters: " + e.getMessage(),
+                Response.Status.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    
+    /**
+     * Get cluster members by cluster name using ClusterManager MBean
+     */
+    @GET
+    @Path("/cluster")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getClusterMembers(@QueryParam("clusterName") String clusterName) {
+        LOGGER.info("Getting members for cluster: " + clusterName);
+        
+        try {
+            if (clusterName == null || clusterName.trim().isEmpty()) {
+                return createErrorResponse(
+                    "Missing required parameter: clusterName",
+                    Response.Status.BAD_REQUEST
+                );
+            }
+            
+            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+            
+            if (!isCollectiveController(mbs)) {
+                return createErrorResponse(
+                    "This application must be deployed on a Liberty Collective Controller",
+                    Response.Status.INTERNAL_SERVER_ERROR
+                );
+            }
+            
+            // Use ClusterManager MBean to get cluster members
+            ObjectName clusterMgrMBean = new ObjectName("WebSphere:feature=collectiveController,type=ClusterManager,name=ClusterManager");
+            Collection<String> memberNames = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listMembers",
+                new Object[] {clusterName}, new String[] {String.class.getName()});
+            
+            if (memberNames == null || memberNames.isEmpty()) {
+                JsonObject response = Json.createObjectBuilder()
+                    .add("clusterName", clusterName)
+                    .add("memberCount", 0)
+                    .add("members", Json.createArrayBuilder())
+                    .add("message", "No members found for cluster: " + clusterName)
+                    .add("timestamp", System.currentTimeMillis())
+                    .build();
+                return Response.status(Response.Status.NOT_FOUND).entity(response).build();
+            }
+            
+            LOGGER.info("Found " + memberNames.size() + " members in cluster: " + clusterName);
+            
+            JsonArrayBuilder membersArray = Json.createArrayBuilder();
+            
+            // Get detailed information for each member
+            for (String memberName : memberNames) {
+                try {
+                    ObjectName serverMBean = new ObjectName("WebSphere:feature=collectiveController,type=Server,name=" + memberName);
+                    
+                    if (mbs.isRegistered(serverMBean)) {
+                        JsonObjectBuilder memberBuilder = Json.createObjectBuilder();
+                        memberBuilder.add("serverName", memberName);
+                        memberBuilder.add("clusterName", clusterName);
+                        
+                        // Get host
+                        try {
+                            Object host = mbs.getAttribute(serverMBean, "Host");
+                            if (host != null) {
+                                memberBuilder.add("host", host.toString());
+                            }
+                        } catch (Exception e) {
+                            LOGGER.fine("Could not get Host for " + memberName);
+                        }
+                        
+                        // Get hostname
+                        try {
+                            Object hostName = mbs.getAttribute(serverMBean, "HostName");
+                            if (hostName != null) {
+                                memberBuilder.add("hostName", hostName.toString());
+                            }
+                        } catch (Exception e) {
+                            LOGGER.fine("Could not get HostName for " + memberName);
+                        }
+                        
+                        // Get HTTPS port
+                        try {
+                            Object httpsPort = mbs.getAttribute(serverMBean, "HttpsPort");
+                            if (httpsPort != null) {
+                                memberBuilder.add("httpsPort", httpsPort.toString());
+                            }
+                        } catch (Exception e) {
+                            LOGGER.fine("Could not get HttpsPort for " + memberName);
+                        }
+                        
+                        // Get HTTP port
+                        try {
+                            Object httpPort = mbs.getAttribute(serverMBean, "HttpPort");
+                            if (httpPort != null) {
+                                memberBuilder.add("httpPort", httpPort.toString());
+                            }
+                        } catch (Exception e) {
+                            LOGGER.fine("Could not get HttpPort for " + memberName);
+                        }
+                        
+                        // Get state
+                        try {
+                            Object state = mbs.getAttribute(serverMBean, "State");
+                            if (state != null) {
+                                memberBuilder.add("state", state.toString());
+                            }
+                        } catch (Exception e) {
+                            LOGGER.fine("Could not get State for " + memberName);
+                        }
+                        
+                        membersArray.add(memberBuilder.build());
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Error processing member: " + memberName, e);
+                }
+            }
+            
+            JsonObject response = Json.createObjectBuilder()
+                .add("clusterName", clusterName)
+                .add("memberCount", memberNames.size())
+                .add("members", membersArray)
+                .add("timestamp", System.currentTimeMillis())
+                .build();
+            
+            return Response.ok(response).build();
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to get cluster members", e);
+            return createErrorResponse(
+                "Failed to get cluster members: " + e.getMessage(),
+                Response.Status.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    
+    /**
+     * Helper method to invoke MBean operations
+     */
+    private Object invokeOperation(MBeanServer mbs, ObjectName objName, String operationName, Object[] params, String[] signature) throws Exception {
+        return mbs.invoke(objName, operationName, params, signature);
     }
     
     /**

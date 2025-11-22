@@ -17,6 +17,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -332,11 +333,44 @@ public class CollectiveMembersResource {
     }
     
     /**
-     * Get cluster members by cluster name with host IP/name and HTTPS port information.
-     * This endpoint queries the collective controller for members of a specific cluster.
-     *
-     * @param clusterName The name of the cluster to query (required query parameter)
-     * @return JSON response containing cluster member details including host and HTTPS port
+     * List all available clusters in the collective
+     */
+    @GET
+    @Path("/clusters")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response listClusters() {
+        try {
+            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+            
+            // Verify controller
+            if (!isCollectiveController(mbs)) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "This endpoint must be deployed on a Liberty Collective Controller");
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(errorResponse).build();
+            }
+            
+            // Use ClusterManager MBean to get cluster names
+            ObjectName clusterMgrMBean = new ObjectName("WebSphere:feature=collectiveController,type=ClusterManager,name=ClusterManager");
+            Collection<String> clusterNames = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listClusterNames", null, null);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("clusterCount", clusterNames != null ? clusterNames.size() : 0);
+            response.put("clusters", clusterNames != null ? new ArrayList<>(clusterNames) : new ArrayList<>());
+            response.put("timestamp", System.currentTimeMillis());
+            
+            return Response.ok(response).build();
+            
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Failed to list clusters");
+            error.put("message", e.getMessage());
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(error).build();
+        }
+    }
+    
+    /**
+     * Get cluster members by cluster name with host IP/name, HTTPS port, and application MBean states
      */
     @GET
     @Path("/cluster")
@@ -354,77 +388,77 @@ public class CollectiveMembersResource {
             MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
             
             // Verify this is running on a collective controller
-            ObjectName controllerMBeanName = new ObjectName("WebSphere:feature=collectiveController,type=CollectiveRepository,name=CollectiveRepository");
-            if (!mbs.isRegistered(controllerMBeanName)) {
+            if (!isCollectiveController(mbs)) {
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("error", "This endpoint must be deployed on a Liberty Collective Controller");
-                errorResponse.put("mbean_not_found", controllerMBeanName.toString());
                 return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(errorResponse).build();
             }
             
             System.out.println("Querying cluster members for cluster: " + clusterName);
             
+            // Use ClusterManager MBean to get cluster members
+            ObjectName clusterMgrMBean = new ObjectName("WebSphere:feature=collectiveController,type=ClusterManager,name=ClusterManager");
+            Collection<String> memberNames = (Collection<String>) invokeOperation(mbs, clusterMgrMBean, "listMembers",
+                new Object[] {clusterName}, new String[] {String.class.getName()});
+            
+            if (memberNames == null || memberNames.isEmpty()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("clusterName", clusterName);
+                response.put("memberCount", 0);
+                response.put("members", new ArrayList<>());
+                response.put("message", "No members found for cluster: " + clusterName);
+                response.put("timestamp", System.currentTimeMillis());
+                return Response.status(Response.Status.NOT_FOUND).entity(response).build();
+            }
+            
+            System.out.println("Found " + memberNames.size() + " members in cluster: " + clusterName);
+            
             List<Map<String, Object>> clusterMembers = new ArrayList<>();
             
-            // Query for all server MBeans in the collective
-            ObjectName serverQuery = new ObjectName("WebSphere:feature=collectiveController,type=Server,*");
-            Set<ObjectName> serverMBeans = mbs.queryNames(serverQuery, null);
-            
-            System.out.println("Found " + serverMBeans.size() + " server MBeans in the collective");
-            
-            for (ObjectName serverMBean : serverMBeans) {
+            // Get detailed information for each member
+            for (String memberName : memberNames) {
                 try {
-                    // Get cluster information for this server
-                    Object clusterAttr = null;
-                    try {
-                        clusterAttr = mbs.getAttribute(serverMBean, "Cluster");
-                    } catch (Exception e) {
-                        // Server might not have cluster attribute
-                        continue;
-                    }
+                    // Query for the specific server MBean
+                    ObjectName serverQuery = new ObjectName("WebSphere:feature=collectiveController,type=Server,name=" + memberName);
                     
-                    // Check if this server belongs to the requested cluster
-                    if (clusterAttr != null && clusterName.equals(clusterAttr.toString())) {
+                    if (mbs.isRegistered(serverQuery)) {
                         Map<String, Object> memberInfo = new HashMap<>();
-                        
-                        // Extract server name
-                        String serverName = serverMBean.getKeyProperty("name");
-                        memberInfo.put("serverName", serverName);
+                        memberInfo.put("serverName", memberName);
                         memberInfo.put("clusterName", clusterName);
                         
                         // Get host information
                         try {
-                            Object hostAttr = mbs.getAttribute(serverMBean, "Host");
+                            Object hostAttr = mbs.getAttribute(serverQuery, "Host");
                             if (hostAttr != null) {
                                 memberInfo.put("host", hostAttr.toString());
                             }
                         } catch (Exception e) {
-                            System.err.println("Could not get Host attribute for " + serverName);
+                            System.err.println("Could not get Host attribute for " + memberName);
                         }
                         
                         // Get hostname
                         try {
-                            Object hostNameAttr = mbs.getAttribute(serverMBean, "HostName");
+                            Object hostNameAttr = mbs.getAttribute(serverQuery, "HostName");
                             if (hostNameAttr != null) {
                                 memberInfo.put("hostName", hostNameAttr.toString());
                             }
                         } catch (Exception e) {
-                            System.err.println("Could not get HostName attribute for " + serverName);
+                            System.err.println("Could not get HostName attribute for " + memberName);
                         }
                         
                         // Get HTTPS port
                         try {
-                            Object httpsPortAttr = mbs.getAttribute(serverMBean, "HttpsPort");
+                            Object httpsPortAttr = mbs.getAttribute(serverQuery, "HttpsPort");
                             if (httpsPortAttr != null) {
                                 memberInfo.put("httpsPort", httpsPortAttr.toString());
                             }
                         } catch (Exception e) {
-                            System.err.println("Could not get HttpsPort attribute for " + serverName);
+                            System.err.println("Could not get HttpsPort attribute for " + memberName);
                         }
                         
-                        // Get HTTP port (optional)
+                        // Get HTTP port
                         try {
-                            Object httpPortAttr = mbs.getAttribute(serverMBean, "HttpPort");
+                            Object httpPortAttr = mbs.getAttribute(serverQuery, "HttpPort");
                             if (httpPortAttr != null) {
                                 memberInfo.put("httpPort", httpPortAttr.toString());
                             }
@@ -434,17 +468,17 @@ public class CollectiveMembersResource {
                         
                         // Get server state
                         try {
-                            Object stateAttr = mbs.getAttribute(serverMBean, "State");
+                            Object stateAttr = mbs.getAttribute(serverQuery, "State");
                             if (stateAttr != null) {
                                 memberInfo.put("state", stateAttr.toString());
                             }
                         } catch (Exception e) {
-                            System.err.println("Could not get State attribute for " + serverName);
+                            System.err.println("Could not get State attribute for " + memberName);
                         }
                         
                         // Get user directory
                         try {
-                            Object userDirAttr = mbs.getAttribute(serverMBean, "UserDir");
+                            Object userDirAttr = mbs.getAttribute(serverQuery, "UserDir");
                             if (userDirAttr != null) {
                                 memberInfo.put("userDir", userDirAttr.toString());
                             }
@@ -454,7 +488,7 @@ public class CollectiveMembersResource {
                         
                         // Get WLP install directory
                         try {
-                            Object wlpInstallDirAttr = mbs.getAttribute(serverMBean, "WlpInstallDir");
+                            Object wlpInstallDirAttr = mbs.getAttribute(serverQuery, "WlpInstallDir");
                             if (wlpInstallDirAttr != null) {
                                 memberInfo.put("wlpInstallDir", wlpInstallDirAttr.toString());
                             }
@@ -467,7 +501,7 @@ public class CollectiveMembersResource {
                             memberInfo.get("hostName").toString() :
                             (memberInfo.get("host") != null ? memberInfo.get("host").toString() : "localhost");
                         
-                        List<Map<String, Object>> applications = getApplicationMBeansFromMember(mbs, serverName, hostForQuery);
+                        List<Map<String, Object>> applications = getApplicationMBeansFromMember(mbs, memberName, hostForQuery);
                         if (!applications.isEmpty()) {
                             memberInfo.put("applications", applications);
                             memberInfo.put("applicationCount", applications.size());
@@ -477,11 +511,12 @@ public class CollectiveMembersResource {
                         }
                         
                         clusterMembers.add(memberInfo);
-                        System.out.println("Added cluster member: " + serverName + " from cluster: " + clusterName +
-                                         " with " + applications.size() + " applications");
+                        System.out.println("Added cluster member: " + memberName + " with " + applications.size() + " applications");
+                    } else {
+                        System.err.println("Server MBean not found for member: " + memberName);
                     }
                 } catch (Exception e) {
-                    System.err.println("Error processing server MBean " + serverMBean + ": " + e.getMessage());
+                    System.err.println("Error processing member " + memberName + ": " + e.getMessage());
                     e.printStackTrace();
                 }
             }
@@ -658,6 +693,25 @@ public class CollectiveMembersResource {
         }
         
         return applications;
+    }
+    
+    /**
+     * Helper method to check if running on collective controller
+     */
+    private boolean isCollectiveController(MBeanServer mbs) {
+        try {
+            ObjectName controllerMBean = new ObjectName("WebSphere:feature=collectiveController,type=CollectiveRepository,name=CollectiveRepository");
+            return mbs.isRegistered(controllerMBean);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Helper method to invoke MBean operations
+     */
+    private Object invokeOperation(MBeanServer mbs, ObjectName objName, String operationName, Object[] params, String[] signature) throws Exception {
+        return mbs.invoke(objName, operationName, params, signature);
     }
 }
 
