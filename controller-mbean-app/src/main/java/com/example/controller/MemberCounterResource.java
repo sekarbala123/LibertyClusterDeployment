@@ -526,6 +526,48 @@ public class MemberCounterResource {
     }
     
     /**
+     * Diagnostic endpoint to list all MBeans available on the controller
+     * This helps debug MBean discovery issues
+     */
+    @GET
+    @Path("/debug/mbeans")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response listAllMBeans(@QueryParam("filter") String filter) {
+        LOGGER.info("Listing all MBeans" + (filter != null ? " with filter: " + filter : ""));
+        
+        try {
+            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+            
+            String pattern = filter != null && !filter.trim().isEmpty() ? filter : "*:*";
+            ObjectName query = new ObjectName(pattern);
+            Set<ObjectName> allMBeans = mbs.queryNames(query, null);
+            
+            LOGGER.info("Found " + allMBeans.size() + " MBeans with pattern: " + pattern);
+            
+            JsonArrayBuilder mbeansArray = Json.createArrayBuilder();
+            for (ObjectName mbean : allMBeans) {
+                mbeansArray.add(mbean.toString());
+            }
+            
+            JsonObject response = Json.createObjectBuilder()
+                .add("pattern", pattern)
+                .add("count", allMBeans.size())
+                .add("mbeans", mbeansArray)
+                .add("timestamp", System.currentTimeMillis())
+                .build();
+            
+            return Response.ok(response).build();
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to list MBeans", e);
+            return createErrorResponse(
+                "Failed to list MBeans: " + e.getMessage(),
+                Response.Status.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    
+    /**
      * Helper method to invoke MBean operations
      */
     private Object invokeOperation(MBeanServer mbs, ObjectName objName, String operationName, Object[] params, String[] signature) throws Exception {
